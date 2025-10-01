@@ -33,9 +33,10 @@ def reset_grid():
 
     while True:
         grid = grid_module.make_grid()
-        start, end = place_start_end()
 
         grid_module.apply_perlin_walls(grid, scale=3.0, threshold=0.56, seed=random.randint(0, 999999))
+
+        start, end = place_start_end()
 
         if ALGORITHMS[alg_idx][2](grid, start, end):
             break

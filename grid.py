@@ -4,17 +4,17 @@ import random
 
 # creates square grid
 ROWS, COLS = 50, 50
-WIDTH, HEIGHT = 800, 800   # pixels
+WIDTH, HEIGHT = 800, 800    # pixels
 CELL_SIZE = WIDTH // COLS   # pixels
 
 # Colors (R, G, B)
-BLACK = (0, 0, 0)   # empty cell
-LIGHT_GREY = (200, 200, 200)         # wall
-GREEN = (0, 255, 0)       # start
-RED = (255, 0, 0)         # end
-BLUE = (100, 150, 255)        # visited nodes
-ORANGE = (255, 165, 0)    # final path
-GREY = (50, 50, 50)    # grid lines
+BLACK = (0, 0, 0)               # empty cell
+LIGHT_GREY = (200, 200, 200)    # wall
+GREEN = (0, 255, 0)             # start
+RED = (255, 0, 0)               # end
+BLUE = (100, 150, 255)          # visited nodes
+ORANGE = (255, 165, 0)          # final path
+GREY = (50, 50, 50)             # grid lines
 
 class Cell:
     def __init__(self, row, col, width, total_rows):
@@ -53,7 +53,7 @@ def _lerp(a, b, t):
 
 def _grad(hash_, x, y):
     # 2D gradient from hash (like Ken Perlin's improved noise)
-    h = hash_ & 7  # 8 gradients
+    h = hash_ & 7
     u = x if h < 4 else y
     v = y if h < 4 else x
     return ((u if (h & 1) == 0 else -u) + (v if (h & 2) == 0 else -v))
@@ -86,20 +86,16 @@ def perlin2d(x, y, perm):
     return _lerp(x1, x2, v)  # in roughly [-1, 1]
 
 def apply_perlin_walls(grid, scale=10.0, threshold=0.55, seed=0):
-    """
-    Fills the grid with walls where Perlin noise > threshold.
-    - scale: bigger => smoother blobs; smaller => noisier speckle
-    - threshold: [0..1]; higher => fewer walls
-    """
+    # - scale: bigger => smoother blobs; smaller => noisier speckle
+    # - threshold: [0..1]; higher => fewer walls
     perm = _make_perm(seed)
     rows, cols = ROWS, COLS
     for r in range(rows):
         for c in range(cols):
-            # map grid cell to noise coords; tweak scale as you like
             nx = c / scale
             ny = r / scale
             n = perlin2d(nx, ny, perm)
-            n01 = (n + 1) * 0.5  # normalize to [0, 1]
+            n01 = (n + 1) * 0.5
             if n01 > threshold:
                 grid[r][c].make_wall()
     
