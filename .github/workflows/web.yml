@@ -1,0 +1,11 @@
+name: Python CI (planned)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Planned workflow
+        run: echo "CI not implemented yet"
