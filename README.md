@@ -1,20 +1,22 @@
-Pathfinding Visualizer (Pygame)
+# Pathfinding Visualizer
 
-This is a simple pathfinding visualizer built with Pygame. It uses a grid and runs BFS to show the shortest path between two points.
+This repository is currently split into a C++ engine workspace and a React frontend workspace.
 
-Things to improve:
+## Current Implementation
+- `cpp-engine/src/grid.hpp` + `cpp-engine/src/grid.cpp`
+  - `grid` class with a `cell` model and `State` enum (`Empty`, `Wall`, `Start`, `End`, `Visited`, `Path`, `Line`).
+  - Grid dimensions are loaded from config and used to allocate the full cell vector.
+- `cpp-engine/src/config/grid_size_reader.hpp` + `cpp-engine/src/config/grid_size_reader.cpp`
+  - Reads `grid_size` from `configs/config.json`.
+  - Uses a fallback value of `30` when the file/key/value is invalid.
+- `configs/config.json`
+  - Current value: `grid_size = 30`.
+- `schemas/app_config.schema.json`
+  - JSON schema for config validation (`grid_size` must be an integer >= 2).
+- `web/`
+  - Default React + Vite starter project, not yet connected to the engine.
 
-- Add more algorithms: A*, Dijkstra, Greedy Best First, Bidirectional BFS.
-- Add weighted terrains (cells with different movement cost).
-- Option to switch between 4-direction and 8-direction movement (for dijkstra).
-- Add path smoothing after finding the path.
-- Show counters: nodes visited, path length, total cost, elapsed time.
-- Add different maze generators: recursive backtracker, Prim’s, Kruskal’s, recursive division, Hunt-and-Kill.
-- Split code into clearer parts: grid/algorithms, drawing, input handling.
-- Add a status bar with nodes expanded, path cost, and time.
-
-Notes:
-- **Perlin noise function for maze generation adapted with AI assistance**
-- BFS is fine for 4-direction grids with equal step cost.
-- For weighted or diagonal movement, switch to Dijkstra or A*.
-- Keep functions small to make the main loops clear.
+## Next Steps
+- Add core pathfinding logic to the C++ engine (BFS, then A*/Dijkstra).
+- Define a clean interface between engine state and frontend rendering.
+- Replace the starter React UI with the actual visualizer controls/canvas.
