@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "app_config.schema.json",
+  "title": "AppConfig",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "grid_size": {
+      "type": "integer",
+      "minimum": 2
+    }
+  },
+  "required": [
+    "grid_size"
+  ]
+}
