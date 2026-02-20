@@ -1,5 +1,5 @@
 
-#include "grid.hpp"
+#include "cpp-engine/src/grid.hpp"
 
 grid::grid()
 {
@@ -12,4 +12,20 @@ grid::grid()
     {
         cells.emplace_back(State::Empty);
     }
+}
+
+int grid::getGridDims() 
+{ 
+    return gridDims; 
+
+}
+
+int grid::getGridSize() 
+{
+    return gridSize;
+}
+
+const vector<grid::cell>& grid::getCells() 
+{
+    return cells;
 }

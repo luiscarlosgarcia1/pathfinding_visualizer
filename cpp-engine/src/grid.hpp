@@ -1,6 +1,6 @@
 
 #pragma once
-#include "config/grid_size_reader.hpp"
+#include "cpp-engine/src/config/grid_size_reader.hpp"
 #include <vector>
 using namespace std;
 
@@ -45,7 +45,7 @@ public:
     grid();
     ~grid() = default;
 
-    int getGridDims() { return gridDims; }
-    int getGridSize() { return gridSize; }
-    const vector<cell>& getCells() { return cells; }
+    int getGridDims();
+    int getGridSize();
+    const vector<cell>& getCells();
 };

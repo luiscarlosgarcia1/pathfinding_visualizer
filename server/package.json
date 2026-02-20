@@ -1,0 +1,11 @@
+{
+  "name": "pathfinding-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
