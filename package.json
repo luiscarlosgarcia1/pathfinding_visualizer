@@ -1,0 +1,8 @@
+{
+  "name": "pathfinding_visualizer",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix server run dev & npm --prefix web run dev & wait",
+    "dev:concurrently": "concurrently \"npm --prefix server run dev\" \"npm --prefix web run dev\""
+  }
+}
