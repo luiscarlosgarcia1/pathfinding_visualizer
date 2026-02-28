@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "bfs_response.schema.json",
+  "title": "BfsResponse",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "gridDims": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "gridSize": {
+      "type": "integer",
+      "minimum": 4
+    },
+    "cells": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "Empty",
+          "Wall",
+          "Start",
+          "End"
+        ]
+      }
+    },
+    "found": {
+      "type": "boolean"
+    },
+    "visitOrder": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "path": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 0
+      }
+    }
+  },
+  "required": [
+    "gridDims",
+    "gridSize",
+    "cells",
+    "found",
+    "visitOrder",
+    "path"
+  ]
+}

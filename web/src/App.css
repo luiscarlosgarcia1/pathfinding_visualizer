@@ -37,6 +37,11 @@
   background: #f0f4f8;
 }
 
+.panel-actions {
+  display: flex;
+  gap: 0.6rem;
+}
+
 .panel button {
   padding: 0.45rem 0.9rem;
   border-radius: 10px;
@@ -47,6 +52,20 @@
 
 .panel button:hover {
   background: #f7fafc;
+}
+
+.panel button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.run-status {
+  margin-left: auto;
+  min-width: 250px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .grid {
@@ -64,8 +83,34 @@
   border-radius: 2px;
   background: #e9eef5;
   padding: 0;
+  transition: background-color 160ms ease;
+}
+
+.cell.start {
+  background: #34c759;
+}
+
+.cell.end {
+  background: #ff3b30;
 }
 
 .cell.wall {
   background: #13294b;
+}
+
+.cell.visited {
+  background: #80bfff;
+}
+
+.cell.path {
+  background: #ffd60a;
+}
+
+@media (max-width: 760px) {
+  .run-status {
+    margin-left: 0;
+    min-width: 0;
+    width: 100%;
+    text-align: left;
+  }
 }
