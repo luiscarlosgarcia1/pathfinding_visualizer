@@ -2,6 +2,24 @@ import { useEffect, useState } from "react";
 import "./App.css";
 
 const DEFAULT_GRID_SIZE = 20;
+const EMPTY_METRIC = "—";
+const INITIAL_ALGORITHM_STATS = {
+  bfs: {
+    runtimeMs: null,
+    visitedCells: null,
+    pathLength: null,
+  },
+  dijkstra: {
+    runtimeMs: null,
+    visitedCells: null,
+    pathLength: null,
+  },
+  astar: {
+    runtimeMs: null,
+    visitedCells: null,
+    pathLength: null,
+  },
+};
 
 const engineStateToUiState = (state) => {
   if (state === "Start") return "start";
@@ -78,6 +96,7 @@ function App() {
   const [serverStatus, setServerStatus] = useState("Checking...");
   const [runStatus, setRunStatus] = useState("Idle");
   const [isRunning, setIsRunning] = useState(false);
+  const [algorithmStats, setAlgorithmStats] = useState(INITIAL_ALGORITHM_STATS);
 
   useEffect(() => {
     const fetchServerStatus = async () => {
@@ -109,9 +128,21 @@ function App() {
     fetchServerStatus();
   }, []);
 
+  const updateAlgorithmStats = (algorithmKey, nextMetrics) => {
+    setAlgorithmStats((prevStats) => ({
+      ...prevStats,
+      [algorithmKey]: {
+        runtimeMs: nextMetrics.runtimeMs,
+        visitedCells: nextMetrics.visitedCells,
+        pathLength: nextMetrics.pathLength,
+      },
+    }));
+  };
+
   const runBfs = async () => {
+    const startTime = performance.now();
     setIsRunning(true);
-    setRunStatus("Running BFS...");
+    setRunStatus("Running");
 
     try {
       const response = await fetch("/api/algorithms/bfs", { method: "POST" });
@@ -122,15 +153,17 @@ function App() {
       }
 
       const nextState = buildGridFromBfsResult(payload.result);
+      const runtimeMs = performance.now() - startTime;
       setGridSize(nextState.dims);
       setGrid(nextState.grid);
-      setRunStatus(
-        nextState.found
-          ? `Done: path found (${nextState.visitCount} visited, ${nextState.pathCount} path)`
-          : `Done: no path (${nextState.visitCount} visited)`,
-      );
+      updateAlgorithmStats("bfs", {
+        runtimeMs,
+        visitedCells: nextState.visitCount,
+        pathLength: nextState.pathCount,
+      });
+      setRunStatus(nextState.found ? "Complete, path found" : "Complete, path not found");
     } catch (error) {
-      setRunStatus(`Run failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+      setRunStatus("Failed");
     } finally {
       setIsRunning(false);
     }
@@ -140,6 +173,12 @@ function App() {
     setGrid(createGrid(gridSize));
     setRunStatus("Idle");
   };
+
+  const tableRows = [
+    { key: "bfs", label: "BFS" },
+    { key: "dijkstra", label: "Dijkstra" },
+    { key: "astar", label: "A*" },
+  ];
 
   return (
     <main className="page">
@@ -156,20 +195,62 @@ function App() {
           </button>
           <button onClick={resetGrid} disabled={isRunning}>Reset Grid</button>
         </div>
-        <p className="run-status">Run: {runStatus}</p>
       </section>
 
-      <section
-        className="grid"
-        style={{ gridTemplateColumns: `repeat(${gridSize}, 1fr)` }}
-      >
-        {grid.map((cell) => (
-          <button
-            key={cell.id}
-            className={`cell ${cell.state}`}
-            aria-label={`Cell ${cell.id}`}
-          />
-        ))}
+      <section className="content-layout">
+        <section
+          className="grid"
+          style={{ gridTemplateColumns: `repeat(${gridSize}, 1fr)` }}
+        >
+          {grid.map((cell) => (
+            <button
+              key={cell.id}
+              className={`cell ${cell.state}`}
+              aria-label={`Cell ${cell.id}`}
+            />
+          ))}
+        </section>
+
+        <aside className="metrics-panel">
+          <h2>Algorithm Performance</h2>
+          <table className="metrics-table">
+            <thead>
+              <tr>
+                <th>Algorithm</th>
+                <th>Total Runtime</th>
+                <th>Visited Cells</th>
+                <th>Path Length</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tableRows.map((row) => {
+                const metrics = algorithmStats[row.key];
+                return (
+                  <tr key={row.key}>
+                    <td>{row.label}</td>
+                    <td>
+                      {typeof metrics.runtimeMs === "number"
+                        ? `${metrics.runtimeMs.toFixed(2)} ms`
+                        : EMPTY_METRIC}
+                    </td>
+                    <td>
+                      {typeof metrics.visitedCells === "number"
+                        ? metrics.visitedCells
+                        : EMPTY_METRIC}
+                    </td>
+                    <td>
+                      {typeof metrics.pathLength === "number"
+                        ? metrics.pathLength
+                        : EMPTY_METRIC}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          <p className="run-status">Run Status: {runStatus}</p>
+        </aside>
       </section>
     </main>
   );
