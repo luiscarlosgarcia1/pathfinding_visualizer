@@ -7,9 +7,6 @@ static const char* stateToString(State s) {
         case State::Wall: return "Wall";
         case State::Start: return "Start";
         case State::End: return "End";
-        case State::Visited: return "Visited";
-        case State::Path: return "Path";
-        case State::Line: return "Line";
         default: return "Empty";
     }
 }
@@ -25,7 +22,7 @@ string gridToJson(grid& g) {
     const auto& cells = g.getCells();
     for (size_t i = 0; i < cells.size(); ++i) 
     {
-        out << "\"" << stateToString(cells[i].state) << "\"";
+        out << "\"" << stateToString(cells[i]) << "\"";
 
         if (!(i == cells.size() - 1)) 
             out << ",";
