@@ -1,15 +1,16 @@
 
 #include "src/grid.hpp"
-#include "src/grid_json.hpp"
+#include "src/algorithms/bfs/bfs.hpp"
+#include "src/serializers/bfs_json.hpp"
 #include <iostream>
 #include <string>
 using namespace std;
 
 
-int main() {
+int main(int argc, char* argv[]) {
     grid g;
 
-    cout << gridToJson(g) << endl;
+    cout << bfsToJson(g, bfs(g)) << endl;
     
     return 0;
 }

@@ -1,5 +1,5 @@
 
-#include "grid_json.hpp"
+#include "bfs_json.hpp"
 
 static const char* stateToString(State s) {
     switch (s) {
@@ -11,7 +11,7 @@ static const char* stateToString(State s) {
     }
 }
 
-string gridToJson(grid& g) {
+string bfsToJson(grid &g, const result &res) {
     ostringstream out;
 
     out << "{";
@@ -20,15 +20,35 @@ string gridToJson(grid& g) {
     out << "\"cells\":[";
     
     const auto& cells = g.getCells();
-    for (size_t i = 0; i < cells.size(); ++i) 
+    for (size_t i = 0; i < cells.size(); i++) 
     {
         out << "\"" << stateToString(cells[i]) << "\"";
-
-        if (!(i == cells.size() - 1)) 
+        if (i < cells.size() - 1)
             out << ",";
     }
 
+    out << "],";
+
+    out << "\"found\":" << (res.found ? "true" : "false") << ",";
+
+    out << "\"visitOrder\":[";
+    for (size_t i = 0; i < res.visitOrder.size(); i++) 
+    {
+        out << res.visitOrder[i];
+        if (i < res.visitOrder.size() - 1)
+            out << ",";
+    }
+    out << "],";
+
+    out << "\"path\":[";
+    for (size_t i = 0; i < res.path.size(); i++)
+    {
+        out << res.path[i];
+        if (i < res.path.size() - 1)
+            out << ",";
+    }
     out << "]";
     out << "}";
+
     return out.str();
 }

@@ -3,7 +3,7 @@
 #include <vector>
 #include <queue>
 #include <deque>
-#include "../../src/grid.hpp"
+#include "../../grid.hpp"
 using namespace std;
 
 struct result {
