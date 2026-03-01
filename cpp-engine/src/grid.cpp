@@ -5,22 +5,22 @@ grid::grid()
 {
     gridDims = config::read_grid_size("configs/config.json");
     gridSize = gridDims * gridDims;
-    startIdx = 0;
-    endIdx = gridSize - 1;
+    startIdx = gridDims*2 + 2;
+    endIdx = gridSize - gridDims*2 - 3;
 
     cells.reserve(gridSize);
 
     for (int i = 0; i < gridSize; i++)
-        cells.push_back(State::Empty);
+        cells.push_back(State::Wall);
 
     cells[startIdx] = State::Start;
     cells[endIdx] = State::End;
 }
 
+
 int grid::getGridDims() 
 { 
     return gridDims; 
-
 }
 
 int grid::getGridSize() 
@@ -37,6 +37,28 @@ int grid::getEnd()
 {
     return endIdx;
 }
+
+
+void grid::setEmpty(int idx) 
+{   
+    cells[idx] = State::Empty;
+}
+
+void grid::setWall(int idx)
+{
+    cells[idx] = State::Wall;
+}
+
+void grid::setStart(int idx)
+{
+    cells[idx] = State::Start;
+}
+
+void grid::setEnd(int idx)
+{
+    cells[idx] = State::End;
+}
+
 
 bool grid::isEmpty(int idx)
 {

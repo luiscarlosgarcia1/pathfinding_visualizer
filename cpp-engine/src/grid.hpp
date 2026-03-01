@@ -33,6 +33,11 @@ public:
     int getStart();
     int getEnd();
 
+    void setEmpty(int idx);
+    void setWall(int idx);
+    void setStart(int idx);
+    void setEnd(int idx);
+
     bool isEmpty(int idx);
     bool isWall(int idx);
     bool isStart(int idx);

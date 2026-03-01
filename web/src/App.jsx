@@ -28,19 +28,13 @@ const engineStateToUiState = (state) => {
   return "empty";
 };
 
-const createGrid = (size) => {
-  const nextGrid = Array.from({ length: size * size }, (_, index) => ({
+const createPlaceholderGrid = (size) =>
+  Array.from({ length: size * size }, (_, index) => ({
     id: index,
     state: "empty",
   }));
 
-  if (nextGrid.length > 0) {
-    nextGrid[0] = { id: 0, state: "start" };
-    nextGrid[nextGrid.length - 1] = { id: nextGrid.length - 1, state: "end" };
-  }
-
-  return nextGrid;
-};
+const cloneGrid = (grid) => grid.map((cell) => ({ ...cell }));
 
 const isValidCellIndex = (index, size) =>
   Number.isInteger(index) && index >= 0 && index < size;
@@ -58,41 +52,70 @@ const buildGridFromBfsResult = (result) => {
     throw new Error("Engine returned an invalid grid size.");
   }
 
-  const baseGrid =
-    Array.isArray(result?.cells) && result.cells.length === gridSize
-      ? result.cells.map((state, index) => ({
-          id: index,
-          state: engineStateToUiState(state),
-        }))
-      : createGrid(dims);
+  if (!Array.isArray(result?.cells) || result.cells.length !== gridSize) {
+    throw new Error("Engine returned an invalid cells array.");
+  }
+
+  const baseGrid = result.cells.map((state, index) => ({
+    id: index,
+    state: engineStateToUiState(state),
+  }));
+  const renderedGrid = cloneGrid(baseGrid);
 
   const visitOrder = Array.isArray(result?.visitOrder) ? result.visitOrder : [];
   const path = Array.isArray(result?.path) ? result.path : [];
 
   for (const index of visitOrder) {
-    if (!isValidCellIndex(index, baseGrid.length)) continue;
-    if (baseGrid[index].state === "start" || baseGrid[index].state === "end") continue;
-    baseGrid[index] = { ...baseGrid[index], state: "visited" };
+    if (!isValidCellIndex(index, renderedGrid.length)) continue;
+    if (renderedGrid[index].state === "start" || renderedGrid[index].state === "end") continue;
+    renderedGrid[index] = { ...renderedGrid[index], state: "visited" };
   }
 
   for (const index of path) {
-    if (!isValidCellIndex(index, baseGrid.length)) continue;
-    if (baseGrid[index].state === "start" || baseGrid[index].state === "end") continue;
-    baseGrid[index] = { ...baseGrid[index], state: "path" };
+    if (!isValidCellIndex(index, renderedGrid.length)) continue;
+    if (renderedGrid[index].state === "start" || renderedGrid[index].state === "end") continue;
+    renderedGrid[index] = { ...renderedGrid[index], state: "path" };
   }
 
   return {
     dims,
-    grid: baseGrid,
+    grid: renderedGrid,
+    baseGrid,
     found: Boolean(result?.found),
     visitCount: visitOrder.length,
     pathCount: path.length,
   };
 };
 
+const buildGridFromGridResult = (result) => {
+  const dims = Number(result?.gridDims);
+  const gridSize = Number(result?.gridSize);
+  const expectedSize = dims * dims;
+
+  if (!Number.isInteger(dims) || dims < 2) {
+    throw new Error("Engine returned an invalid grid dimension.");
+  }
+
+  if (!Number.isInteger(gridSize) || gridSize !== expectedSize) {
+    throw new Error("Engine returned an invalid grid size.");
+  }
+
+  if (!Array.isArray(result?.cells) || result.cells.length !== gridSize) {
+    throw new Error("Engine returned an invalid cells array.");
+  }
+
+  const nextGrid = result.cells.map((state, index) => ({
+    id: index,
+    state: engineStateToUiState(state),
+  }));
+
+  return { dims, grid: nextGrid };
+};
+
 function App() {
   const [gridSize, setGridSize] = useState(DEFAULT_GRID_SIZE);
-  const [grid, setGrid] = useState(() => createGrid(DEFAULT_GRID_SIZE));
+  const [grid, setGrid] = useState(() => createPlaceholderGrid(DEFAULT_GRID_SIZE));
+  const [engineBaseGrid, setEngineBaseGrid] = useState(null);
   const [serverStatus, setServerStatus] = useState("Checking...");
   const [runStatus, setRunStatus] = useState("Idle");
   const [isRunning, setIsRunning] = useState(false);
@@ -101,22 +124,32 @@ function App() {
   useEffect(() => {
     const fetchServerStatus = async () => {
       try {
-        const [healthResponse, configResponse] = await Promise.all([
+        const [healthResponse, configResponse, gridResponse] = await Promise.all([
           fetch("/api/health"),
           fetch("/api/config"),
+          fetch("/api/grid"),
         ]);
 
-        if (!healthResponse.ok || !configResponse.ok) {
+        if (!healthResponse.ok || !configResponse.ok || !gridResponse.ok) {
           throw new Error("API returned an error response.");
         }
 
         const health = await healthResponse.json();
         const configPayload = await configResponse.json();
+        const gridPayload = await gridResponse.json();
         const size = Number(configPayload?.config?.grid_size);
 
         if (Number.isInteger(size) && size >= 2) {
           setGridSize(size);
-          setGrid(createGrid(size));
+        }
+
+        if (gridPayload?.ok && gridPayload?.result) {
+          const nextState = buildGridFromGridResult(gridPayload.result);
+          setGridSize(nextState.dims);
+          setGrid(nextState.grid);
+          setEngineBaseGrid(cloneGrid(nextState.grid));
+        } else if (Number.isInteger(size) && size >= 2) {
+          setGrid(createPlaceholderGrid(size));
         }
 
         setServerStatus(`Online (${health.service})`);
@@ -156,6 +189,7 @@ function App() {
       const runtimeMs = performance.now() - startTime;
       setGridSize(nextState.dims);
       setGrid(nextState.grid);
+      setEngineBaseGrid(nextState.baseGrid);
       updateAlgorithmStats("bfs", {
         runtimeMs,
         visitedCells: nextState.visitCount,
@@ -169,9 +203,52 @@ function App() {
     }
   };
 
-  const resetGrid = () => {
-    setGrid(createGrid(gridSize));
-    setRunStatus("Idle");
+  const resetGrid = async () => {
+    setIsRunning(true);
+    setRunStatus("Clearing");
+
+    try {
+      const response = await fetch("/api/grid/clear", { method: "POST" });
+      const payload = await response.json();
+
+      if (!response.ok || !payload?.ok || !payload?.result) {
+        throw new Error(payload?.details ?? payload?.error ?? "Clear request failed.");
+      }
+
+      const nextState = buildGridFromGridResult(payload.result);
+      setGridSize(nextState.dims);
+      setGrid(nextState.grid);
+      setEngineBaseGrid(cloneGrid(nextState.grid));
+      setRunStatus("Idle");
+    } catch (_error) {
+      setRunStatus("Failed");
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  const generateMaze = async () => {
+    setIsRunning(true);
+    setRunStatus("Generating maze");
+
+    try {
+      const response = await fetch("/api/algorithms/maze", { method: "POST" });
+      const payload = await response.json();
+
+      if (!response.ok || !payload?.ok || !payload?.result) {
+        throw new Error(payload?.details ?? payload?.error ?? "Maze request failed.");
+      }
+
+      const nextState = buildGridFromGridResult(payload.result);
+      setGridSize(nextState.dims);
+      setGrid(nextState.grid);
+      setEngineBaseGrid(cloneGrid(nextState.grid));
+      setRunStatus("Maze generated");
+    } catch (_error) {
+      setRunStatus("Failed");
+    } finally {
+      setIsRunning(false);
+    }
   };
 
   const tableRows = [
@@ -193,7 +270,8 @@ function App() {
           <button onClick={runBfs} disabled={isRunning}>
             {isRunning ? "Running..." : "Run BFS"}
           </button>
-          <button onClick={resetGrid} disabled={isRunning}>Reset Grid</button>
+          <button onClick={resetGrid} disabled={isRunning || !engineBaseGrid}>Clear Grid</button>
+          <button onClick={generateMaze} disabled={isRunning}>Generate Maze</button>
         </div>
       </section>
 

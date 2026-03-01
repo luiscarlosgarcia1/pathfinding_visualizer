@@ -13,12 +13,16 @@ const rootDir = path.resolve(__dirname, "..");
 const configPath = path.join(rootDir, "configs", "config.json");
 const engineBinaryPath = path.join(rootDir, "cpp-engine", "build", "main");
 const ENGINE_TIMEOUT_MS = 5000;
+const layoutState = {
+  mode: "empty",
+  mazeSeed: null,
+};
 
 app.use(express.json());
 
-const runBfsEngine = () =>
+const runEngine = (args) =>
   new Promise((resolve, reject) => {
-    const child = spawn(engineBinaryPath, [], { cwd: rootDir });
+    const child = spawn(engineBinaryPath, args, { cwd: rootDir });
     let stdout = "";
     let stderr = "";
     let settled = false;
@@ -76,6 +80,28 @@ const runBfsEngine = () =>
     });
   });
 
+const ensureEngineBinary = async (res, errorLabel) => {
+  try {
+    await fs.access(engineBinaryPath);
+    return true;
+  } catch (_error) {
+    res.status(500).json({
+      ok: false,
+      error: `${errorLabel} engine binary not found`,
+      details: `Build the engine first: make (expected binary at ${engineBinaryPath})`,
+    });
+    return false;
+  }
+};
+
+const getBaseGridArgs = () => {
+  if (layoutState.mode === "maze" && Number.isInteger(layoutState.mazeSeed)) {
+    return ["maze", String(layoutState.mazeSeed)];
+  }
+
+  return ["empty"];
+};
+
 app.get("/api/health", (_req, res) => {
   res.json({
     ok: true,
@@ -98,25 +124,68 @@ app.get("/api/config", async (_req, res) => {
   }
 });
 
-app.post("/api/algorithms/bfs", async (_req, res) => {
-  try {
-    await fs.access(engineBinaryPath);
-  } catch (_error) {
-    res.status(500).json({
-      ok: false,
-      error: "BFS engine binary not found",
-      details: `Build the engine first: make (expected binary at ${engineBinaryPath})`,
-    });
-    return;
-  }
+app.get("/api/grid", async (_req, res) => {
+  if (!(await ensureEngineBinary(res, "Grid"))) return;
 
   try {
-    const result = await runBfsEngine();
+    const result = await runEngine(getBaseGridArgs());
+    res.json({ ok: true, result });
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      error: "Failed to build base grid",
+      details: error instanceof Error ? error.message : "Unknown engine error",
+    });
+  }
+});
+
+app.post("/api/algorithms/bfs", async (_req, res) => {
+  if (!(await ensureEngineBinary(res, "BFS"))) return;
+
+  try {
+    const args =
+      layoutState.mode === "maze" && Number.isInteger(layoutState.mazeSeed)
+        ? ["bfs-maze", String(layoutState.mazeSeed)]
+        : ["bfs-empty"];
+    const result = await runEngine(args);
     res.json({ ok: true, result });
   } catch (error) {
     res.status(500).json({
       ok: false,
       error: "Failed to run BFS engine",
+      details: error instanceof Error ? error.message : "Unknown engine error",
+    });
+  }
+});
+
+app.post("/api/algorithms/maze", async (_req, res) => {
+  if (!(await ensureEngineBinary(res, "Maze"))) return;
+
+  try {
+    const nextSeed = Math.floor(Math.random() * 0x7fffffff);
+    layoutState.mode = "maze";
+    layoutState.mazeSeed = nextSeed;
+    const result = await runEngine(["maze", String(nextSeed)]);
+    res.json({ ok: true, result });
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      error: "Failed to run maze generator",
+      details: error instanceof Error ? error.message : "Unknown engine error",
+    });
+  }
+});
+
+app.post("/api/grid/clear", async (_req, res) => {
+  if (!(await ensureEngineBinary(res, "Grid clear"))) return;
+
+  try {
+    const result = await runEngine(getBaseGridArgs());
+    res.json({ ok: true, result });
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      error: "Failed to clear grid overlays",
       details: error instanceof Error ? error.message : "Unknown engine error",
     });
   }
