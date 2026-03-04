@@ -1,5 +1,46 @@
-.venv
-.vscode/*
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
 
+# Node / web
 node_modules/
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+web/dist/
+server/dist/
+coverage/
+*.tsbuildinfo
+
+# Local env files
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# C++ / build outputs
+cpp-engine/build/
+build/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+compile_commands.json
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+*.out
