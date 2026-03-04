@@ -6,10 +6,10 @@
 #include "../../grid.hpp"
 using namespace std;
 
-struct result {
+struct bfsResult {
     vector<int> visitOrder;
     deque<int> path;
     bool found = false;
 };
 
-result bfs(grid &g);
+bfsResult bfs(grid &g);

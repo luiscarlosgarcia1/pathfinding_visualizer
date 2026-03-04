@@ -9,7 +9,7 @@ struct bfsContext {
     queue<int> neighbors;
     vector<int> parents;
     vector<bool> seen;
-    result res;
+    bfsResult res;
 
     bfsContext(class grid &g) : grid(g)
     {
@@ -22,7 +22,7 @@ struct bfsContext {
 };
 
 
-result bfs(grid &grid)
+bfsResult bfs(grid &grid)
 {
     bfsContext context(grid);
 

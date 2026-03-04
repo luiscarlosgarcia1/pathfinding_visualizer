@@ -2,7 +2,7 @@
 #include "src/grid.hpp"
 #include "src/algorithms/bfs/bfs.hpp"
 #include "src/algorithms/prims/maze_gen.hpp"
-#include "src/serializers/bfs_json.hpp"
+#include "src/serializers/pathfinder_json.hpp"
 #include "src/serializers/grid_json.hpp"
 #include <cstdlib>
 #include <iostream>
@@ -49,7 +49,8 @@ int main(int argc, char* argv[]) {
 
     if (mode == "bfs-empty") {
         makeEmptyGrid(g);
-        cout << bfsToJson(g, bfs(g)) << endl;
+        bfsResult res = bfs(g);
+        cout << pathfindingToJson(g, res.visitOrder, res.path, res.found) << endl;
         return 0;
     }
 
@@ -57,7 +58,8 @@ int main(int argc, char* argv[]) {
         unsigned int seed = parseSeedOrDefault(argc, argv, 2, 0U);
         srand(seed);
         prims(g);
-        cout << bfsToJson(g, bfs(g)) << endl;
+        bfsResult res = bfs(g);
+        cout << pathfindingToJson(g, res.visitOrder, res.path, res.found) << endl;
         return 0;
     }
 
