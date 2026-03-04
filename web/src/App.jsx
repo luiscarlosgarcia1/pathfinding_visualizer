@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./App.css";
 
 const DEFAULT_GRID_SIZE = 20;
@@ -60,28 +60,20 @@ const buildGridFromPathfindingResult = (result) => {
     id: index,
     state: engineStateToUiState(state),
   }));
-  const renderedGrid = cloneGrid(baseGrid);
 
-  const visitOrder = Array.isArray(result?.visitOrder) ? result.visitOrder : [];
-  const path = Array.isArray(result?.path) ? result.path : [];
-
-  for (const index of visitOrder) {
-    if (!isValidCellIndex(index, renderedGrid.length)) continue;
-    if (renderedGrid[index].state === "start" || renderedGrid[index].state === "end") continue;
-    renderedGrid[index] = { ...renderedGrid[index], state: "visited" };
-  }
-
-  for (const index of path) {
-    if (!isValidCellIndex(index, renderedGrid.length)) continue;
-    if (renderedGrid[index].state === "start" || renderedGrid[index].state === "end") continue;
-    renderedGrid[index] = { ...renderedGrid[index], state: "path" };
-  }
+  const visitOrder = Array.isArray(result?.visitOrder)
+    ? result.visitOrder.filter((index) => isValidCellIndex(index, baseGrid.length))
+    : [];
+  const path = Array.isArray(result?.path)
+    ? result.path.filter((index) => isValidCellIndex(index, baseGrid.length))
+    : [];
 
   return {
     dims,
-    grid: renderedGrid,
     baseGrid,
     found: Boolean(result?.found),
+    visitOrder,
+    path,
     visitCount: visitOrder.length,
     pathCount: path.length,
   };
@@ -121,6 +113,95 @@ function App() {
   const [isRunning, setIsRunning] = useState(false);
   const [activeAlgorithm, setActiveAlgorithm] = useState(null);
   const [algorithmStats, setAlgorithmStats] = useState(INITIAL_ALGORITHM_STATS);
+  const animationRef = useRef({ frameId: null, resolve: null });
+
+  const cancelGridAnimation = () => {
+    if (animationRef.current.frameId !== null) {
+      cancelAnimationFrame(animationRef.current.frameId);
+      animationRef.current.frameId = null;
+    }
+
+    if (animationRef.current.resolve) {
+      const resolve = animationRef.current.resolve;
+      animationRef.current.resolve = null;
+      resolve();
+    }
+  };
+
+  const animatePathfindingResult = (baseGrid, visitOrder, path) =>
+    new Promise((resolve) => {
+      cancelGridAnimation();
+      animationRef.current.resolve = resolve;
+
+      let visitIndex = 0;
+      let pathIndex = 0;
+      let nextGrid = cloneGrid(baseGrid);
+      const frameDurationMs = 1000 / 60;
+      let lastFrameTime = 0;
+      const targetAnimationMs = 3000;
+      const targetFrames = Math.max(1, Math.round(targetAnimationMs / frameDurationMs));
+      const totalNodes = visitOrder.length + path.length;
+      const nodesPerFrame = Math.max(1, Math.ceil(totalNodes / targetFrames));
+      setGrid(nextGrid);
+
+      const applyNodeState = (cells, index, nextState) => {
+        if (!isValidCellIndex(index, cells.length)) return false;
+
+        const cell = cells[index];
+        if (!cell || cell.state === "start" || cell.state === "end") return false;
+        if (cell.state === nextState) return false;
+
+        cells[index] = { ...cell, state: nextState };
+        return true;
+      };
+
+      const step = (timestamp) => {
+        if (timestamp - lastFrameTime < frameDurationMs) {
+          animationRef.current.frameId = requestAnimationFrame(step);
+          return;
+        }
+        lastFrameTime = timestamp;
+
+        let remainingInFrame = nodesPerFrame;
+        const updated = nextGrid.slice();
+        let changed = false;
+
+        while (remainingInFrame > 0) {
+          if (visitIndex < visitOrder.length) {
+            changed = applyNodeState(updated, visitOrder[visitIndex], "visited") || changed;
+            visitIndex += 1;
+            remainingInFrame -= 1;
+            continue;
+          }
+
+          if (pathIndex < path.length) {
+            changed = applyNodeState(updated, path[pathIndex], "path") || changed;
+            pathIndex += 1;
+            remainingInFrame -= 1;
+            continue;
+          }
+
+          break;
+        }
+
+        if (changed) {
+          nextGrid = updated;
+          setGrid(nextGrid);
+        }
+
+        if (visitIndex < visitOrder.length || pathIndex < path.length) {
+          animationRef.current.frameId = requestAnimationFrame(step);
+          return;
+        }
+
+        animationRef.current.frameId = null;
+        const done = animationRef.current.resolve;
+        animationRef.current.resolve = null;
+        done?.();
+      };
+
+      animationRef.current.frameId = requestAnimationFrame(step);
+    });
 
   useEffect(() => {
     const fetchServerStatus = async () => {
@@ -160,6 +241,10 @@ function App() {
     };
 
     fetchServerStatus();
+
+    return () => {
+      cancelGridAnimation();
+    };
   }, []);
 
   const updateAlgorithmStats = (algorithmKey, nextMetrics) => {
@@ -190,8 +275,9 @@ function App() {
       const nextState = buildGridFromPathfindingResult(payload.result);
       const runtimeMs = performance.now() - startTime;
       setGridSize(nextState.dims);
-      setGrid(nextState.grid);
       setEngineBaseGrid(nextState.baseGrid);
+      setRunStatus(`Animating ${algorithmLabel}`);
+      await animatePathfindingResult(nextState.baseGrid, nextState.visitOrder, nextState.path);
       updateAlgorithmStats(algorithmKey, {
         runtimeMs,
         visitedCells: nextState.visitCount,
@@ -219,6 +305,7 @@ function App() {
     setRunStatus("Clearing");
 
     try {
+      cancelGridAnimation();
       const response = await fetch("/api/grid/clear", { method: "POST" });
       const payload = await response.json();
 
@@ -243,6 +330,7 @@ function App() {
     setRunStatus("Generating maze");
 
     try {
+      cancelGridAnimation();
       const response = await fetch("/api/algorithms/maze", { method: "POST" });
       const payload = await response.json();
 

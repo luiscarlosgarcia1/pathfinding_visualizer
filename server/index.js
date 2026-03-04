@@ -13,9 +13,10 @@ const rootDir = path.resolve(__dirname, "..");
 const configPath = path.join(rootDir, "configs", "config.json");
 const engineBinaryPath = path.join(rootDir, "cpp-engine", "build", "main");
 const ENGINE_TIMEOUT_MS = 5000;
+const createMazeSeed = () => Math.floor(Math.random() * 0x7fffffff);
 const layoutState = {
-  mode: "empty",
-  mazeSeed: null,
+  mode: "maze",
+  mazeSeed: createMazeSeed(),
 };
 
 app.use(express.json());
@@ -183,7 +184,7 @@ app.post("/api/algorithms/maze", async (_req, res) => {
   if (!(await ensureEngineBinary(res, "Maze"))) return;
 
   try {
-    const nextSeed = Math.floor(Math.random() * 0x7fffffff);
+    const nextSeed = createMazeSeed();
     layoutState.mode = "maze";
     layoutState.mazeSeed = nextSeed;
     const result = await runEngine(["maze", String(nextSeed)]);

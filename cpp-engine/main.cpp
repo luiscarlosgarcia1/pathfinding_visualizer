@@ -10,7 +10,7 @@
 #include <string>
 using namespace std;
 
-static void makeEmptyGrid(grid &g) {
+static void EmptyGrid(grid &g) {
     for (int i = 0; i < g.getGridSize(); ++i)
         g.setEmpty(i);
 
@@ -18,7 +18,7 @@ static void makeEmptyGrid(grid &g) {
     g.setEnd(g.getEnd());
 }
 
-static unsigned int parseSeedOrDefault(int argc, char* argv[], int seedArgIdx) {
+static unsigned int getSeed(int argc, char* argv[], int seedArgIdx) {
     if (argc <= seedArgIdx) return 0U;
     try { return static_cast<unsigned int>(stoul(argv[seedArgIdx])); }
     catch (...) { return 0U; }
@@ -27,49 +27,41 @@ static unsigned int parseSeedOrDefault(int argc, char* argv[], int seedArgIdx) {
 
 int main(int argc, char* argv[]) {
     grid g;
-    string mode = argc > 1 ? argv[1] : "pathfind-empty";
+    string mode = argv[1];
 
     if (mode == "empty") {
-        makeEmptyGrid(g);
+        EmptyGrid(g);
         cout << gridToJson(g) << endl;
         return 0;
     }
 
     if (mode == "maze") {
-        unsigned int seed = parseSeedOrDefault(argc, argv, 2);
-        srand(seed);
+        srand(getSeed(argc, argv, 2));
         prims(g);
         cout << gridToJson(g) << endl;
         return 0;
     }
 
     if (mode == "pathfind-empty" || mode == "pathfind-maze") {
-        string algorithm = argc > 2 ? argv[2] : "bfs";
+        string algorithm = argv[2];
 
         if (mode == "pathfind-empty") {
-            makeEmptyGrid(g);
+            EmptyGrid(g);
         } else {
-            unsigned int seed = parseSeedOrDefault(argc, argv, 3);
-            srand(seed);
+            srand(getSeed(argc, argv, 3));
             prims(g);
         }
 
         if (algorithm == "bfs") {
-            bfsResult res = bfs(g);
-            cout << pathfindingToJson(g, res) << endl;
+            cout << pathfindingToJson(g, bfs(g)) << endl;
             return 0;
         }
 
         if (algorithm == "dijkstra") {
-            dijkstraResult res = dijkstra(g);
-            cout << pathfindingToJson(g, res) << endl;
+            cout << pathfindingToJson(g, dijkstra(g)) << endl;
             return 0;
         }
-
-        cerr << "Unknown pathfinding algorithm: " << algorithm << endl;
         return 1;
     }
-
-    cerr << "Unknown mode: " << mode << endl;
     return 1;
 }
