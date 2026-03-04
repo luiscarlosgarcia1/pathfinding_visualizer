@@ -1,5 +1,5 @@
 
 #pragma once
-#include "../../grid.hpp"
+#include "grid.hpp"
 
 void prims(grid &grid);

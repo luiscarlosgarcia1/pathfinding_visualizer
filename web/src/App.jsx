@@ -39,7 +39,7 @@ const cloneGrid = (grid) => grid.map((cell) => ({ ...cell }));
 const isValidCellIndex = (index, size) =>
   Number.isInteger(index) && index >= 0 && index < size;
 
-const buildGridFromBfsResult = (result) => {
+const buildGridFromPathfindingResult = (result) => {
   const dims = Number(result?.gridDims);
   const gridSize = Number(result?.gridSize);
   const expectedSize = dims * dims;
@@ -119,6 +119,7 @@ function App() {
   const [serverStatus, setServerStatus] = useState("Checking...");
   const [runStatus, setRunStatus] = useState("Idle");
   const [isRunning, setIsRunning] = useState(false);
+  const [activeAlgorithm, setActiveAlgorithm] = useState(null);
   const [algorithmStats, setAlgorithmStats] = useState(INITIAL_ALGORITHM_STATS);
 
   useEffect(() => {
@@ -172,36 +173,46 @@ function App() {
     }));
   };
 
-  const runBfs = async () => {
+  const runPathfindingAlgorithm = async (algorithmKey, algorithmLabel, endpoint) => {
     const startTime = performance.now();
     setIsRunning(true);
-    setRunStatus("Running");
+    setActiveAlgorithm(algorithmKey);
+    setRunStatus(`Running ${algorithmLabel}`);
 
     try {
-      const response = await fetch("/api/algorithms/bfs", { method: "POST" });
+      const response = await fetch(endpoint, { method: "POST" });
       const payload = await response.json();
 
       if (!response.ok || !payload?.ok || !payload?.result) {
-        throw new Error(payload?.details ?? payload?.error ?? "BFS request failed.");
+        throw new Error(payload?.details ?? payload?.error ?? `${algorithmLabel} request failed.`);
       }
 
-      const nextState = buildGridFromBfsResult(payload.result);
+      const nextState = buildGridFromPathfindingResult(payload.result);
       const runtimeMs = performance.now() - startTime;
       setGridSize(nextState.dims);
       setGrid(nextState.grid);
       setEngineBaseGrid(nextState.baseGrid);
-      updateAlgorithmStats("bfs", {
+      updateAlgorithmStats(algorithmKey, {
         runtimeMs,
         visitedCells: nextState.visitCount,
         pathLength: nextState.pathCount,
       });
-      setRunStatus(nextState.found ? "Complete, path found" : "Complete, path not found");
-    } catch (error) {
+      setRunStatus(
+        nextState.found
+          ? `${algorithmLabel} complete, path found`
+          : `${algorithmLabel} complete, path not found`,
+      );
+    } catch (_error) {
       setRunStatus("Failed");
     } finally {
       setIsRunning(false);
+      setActiveAlgorithm(null);
     }
   };
+
+  const runBfs = () => runPathfindingAlgorithm("bfs", "BFS", "/api/algorithms/bfs");
+  const runDijkstra = () =>
+    runPathfindingAlgorithm("dijkstra", "Dijkstra", "/api/algorithms/dijkstra");
 
   const resetGrid = async () => {
     setIsRunning(true);
@@ -268,7 +279,10 @@ function App() {
         <p>Grid: {gridSize} x {gridSize}</p>
         <div className="panel-actions">
           <button onClick={runBfs} disabled={isRunning}>
-            {isRunning ? "Running..." : "Run BFS"}
+            {isRunning && activeAlgorithm === "bfs" ? "Running..." : "Run BFS"}
+          </button>
+          <button onClick={runDijkstra} disabled={isRunning}>
+            {isRunning && activeAlgorithm === "dijkstra" ? "Running..." : "Run Dijkstra"}
           </button>
           <button onClick={resetGrid} disabled={isRunning || !engineBaseGrid}>Clear Grid</button>
           <button onClick={generateMaze} disabled={isRunning}>Generate Maze</button>

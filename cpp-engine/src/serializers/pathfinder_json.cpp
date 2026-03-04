@@ -1,5 +1,7 @@
 
 #include "pathfinder_json.hpp"
+#include "algorithms/bfs/bfs.hpp"
+#include "algorithms/dijkstra/dijkstra.hpp"
 #include <sstream>
 
 static const char* pathStateToString(State s) {
@@ -12,7 +14,8 @@ static const char* pathStateToString(State s) {
     }
 }
 
-string pathfindingToJson( grid &g, const vector<int> &visitOrder, const deque<int> &path, bool found)
+template <typename PathResult>
+static string pathfindingToJsonImpl(grid &g, const PathResult &res)
 {
     ostringstream out;
 
@@ -30,26 +33,36 @@ string pathfindingToJson( grid &g, const vector<int> &visitOrder, const deque<in
     }
 
     out << "],";
-    out << "\"found\":" << (found ? "true" : "false") << ",";
+    out << "\"found\":" << (res.found ? "true" : "false") << ",";
 
     out << "\"visitOrder\":[";
-    for (size_t i = 0; i < visitOrder.size(); i++)
+    for (size_t i = 0; i < res.visitOrder.size(); i++)
     {
-        out << visitOrder[i];
-        if (i < visitOrder.size() - 1)
+        out << res.visitOrder[i];
+        if (i < res.visitOrder.size() - 1)
             out << ",";
     }
     out << "],";
 
     out << "\"path\":[";
-    for (size_t i = 0; i < path.size(); i++)
+    for (size_t i = 0; i < res.path.size(); i++)
     {
-        out << path[i];
-        if (i < path.size() - 1)
+        out << res.path[i];
+        if (i < res.path.size() - 1)
             out << ",";
     }
     out << "]";
     out << "}";
 
     return out.str();
+}
+
+string pathfindingToJson(grid &g, const bfsResult &res)
+{
+    return pathfindingToJsonImpl(g, res);
+}
+
+string pathfindingToJson(grid &g, const dijkstraResult &res)
+{
+    return pathfindingToJsonImpl(g, res);
 }

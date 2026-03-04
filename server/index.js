@@ -102,6 +102,14 @@ const getBaseGridArgs = () => {
   return ["empty"];
 };
 
+const getPathfindingArgs = (algorithm) => {
+  if (layoutState.mode === "maze" && Number.isInteger(layoutState.mazeSeed)) {
+    return ["pathfind-maze", algorithm, String(layoutState.mazeSeed)];
+  }
+
+  return ["pathfind-empty", algorithm];
+};
+
 app.get("/api/health", (_req, res) => {
   res.json({
     ok: true,
@@ -143,16 +151,29 @@ app.post("/api/algorithms/bfs", async (_req, res) => {
   if (!(await ensureEngineBinary(res, "BFS"))) return;
 
   try {
-    const args =
-      layoutState.mode === "maze" && Number.isInteger(layoutState.mazeSeed)
-        ? ["bfs-maze", String(layoutState.mazeSeed)]
-        : ["bfs-empty"];
+    const args = getPathfindingArgs("bfs");
     const result = await runEngine(args);
     res.json({ ok: true, result });
   } catch (error) {
     res.status(500).json({
       ok: false,
       error: "Failed to run BFS engine",
+      details: error instanceof Error ? error.message : "Unknown engine error",
+    });
+  }
+});
+
+app.post("/api/algorithms/dijkstra", async (_req, res) => {
+  if (!(await ensureEngineBinary(res, "Dijkstra"))) return;
+
+  try {
+    const args = getPathfindingArgs("dijkstra");
+    const result = await runEngine(args);
+    res.json({ ok: true, result });
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      error: "Failed to run Dijkstra engine",
       details: error instanceof Error ? error.message : "Unknown engine error",
     });
   }

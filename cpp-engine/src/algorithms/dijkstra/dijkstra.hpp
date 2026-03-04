@@ -1,7 +1,7 @@
 #pragma once
 #include <deque>
 #include <vector>
-#include "../../grid.hpp"
+#include "grid.hpp"
 using namespace std;
 
 struct dijkstraResult {

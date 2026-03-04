@@ -3,7 +3,7 @@
 #include <vector>
 #include <queue>
 #include <deque>
-#include "../../grid.hpp"
+#include "grid.hpp"
 using namespace std;
 
 struct bfsResult {

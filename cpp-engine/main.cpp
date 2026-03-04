@@ -1,9 +1,10 @@
 
-#include "src/grid.hpp"
-#include "src/algorithms/bfs/bfs.hpp"
-#include "src/algorithms/prims/maze_gen.hpp"
-#include "src/serializers/pathfinder_json.hpp"
-#include "src/serializers/grid_json.hpp"
+#include "grid.hpp"
+#include "algorithms/bfs/bfs.hpp"
+#include "algorithms/dijkstra/dijkstra.hpp"
+#include "algorithms/prims/maze_gen.hpp"
+#include "serializers/pathfinder_json.hpp"
+#include "serializers/grid_json.hpp"
 #include <cstdlib>
 #include <iostream>
 #include <string>
@@ -17,21 +18,16 @@ static void makeEmptyGrid(grid &g) {
     g.setEnd(g.getEnd());
 }
 
-static unsigned int parseSeedOrDefault(int argc, char* argv[], int seedArgIdx, unsigned int fallback) {
-    if (argc <= seedArgIdx)
-        return fallback;
-
-    try {
-        return static_cast<unsigned int>(stoul(argv[seedArgIdx]));
-    } catch (...) {
-        return fallback;
-    }
+static unsigned int parseSeedOrDefault(int argc, char* argv[], int seedArgIdx) {
+    if (argc <= seedArgIdx) return 0U;
+    try { return static_cast<unsigned int>(stoul(argv[seedArgIdx])); }
+    catch (...) { return 0U; }
 }
 
 
 int main(int argc, char* argv[]) {
     grid g;
-    string mode = argc > 1 ? argv[1] : "bfs-empty";
+    string mode = argc > 1 ? argv[1] : "pathfind-empty";
 
     if (mode == "empty") {
         makeEmptyGrid(g);
@@ -40,27 +36,38 @@ int main(int argc, char* argv[]) {
     }
 
     if (mode == "maze") {
-        unsigned int seed = parseSeedOrDefault(argc, argv, 2, 0U);
+        unsigned int seed = parseSeedOrDefault(argc, argv, 2);
         srand(seed);
         prims(g);
         cout << gridToJson(g) << endl;
         return 0;
     }
 
-    if (mode == "bfs-empty") {
-        makeEmptyGrid(g);
-        bfsResult res = bfs(g);
-        cout << pathfindingToJson(g, res.visitOrder, res.path, res.found) << endl;
-        return 0;
-    }
+    if (mode == "pathfind-empty" || mode == "pathfind-maze") {
+        string algorithm = argc > 2 ? argv[2] : "bfs";
 
-    if (mode == "bfs-maze") {
-        unsigned int seed = parseSeedOrDefault(argc, argv, 2, 0U);
-        srand(seed);
-        prims(g);
-        bfsResult res = bfs(g);
-        cout << pathfindingToJson(g, res.visitOrder, res.path, res.found) << endl;
-        return 0;
+        if (mode == "pathfind-empty") {
+            makeEmptyGrid(g);
+        } else {
+            unsigned int seed = parseSeedOrDefault(argc, argv, 3);
+            srand(seed);
+            prims(g);
+        }
+
+        if (algorithm == "bfs") {
+            bfsResult res = bfs(g);
+            cout << pathfindingToJson(g, res) << endl;
+            return 0;
+        }
+
+        if (algorithm == "dijkstra") {
+            dijkstraResult res = dijkstra(g);
+            cout << pathfindingToJson(g, res) << endl;
+            return 0;
+        }
+
+        cerr << "Unknown pathfinding algorithm: " << algorithm << endl;
+        return 1;
     }
 
     cerr << "Unknown mode: " << mode << endl;

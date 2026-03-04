@@ -1,13 +1,10 @@
 #pragma once
-#include "../grid.hpp"
-#include <deque>
+#include "grid.hpp"
 #include <string>
-#include <vector>
 using namespace std;
 
-string pathfindingToJson(
-    grid &g,
-    const vector<int> &visitOrder,
-    const deque<int> &path,
-    bool found
-);
+struct bfsResult;
+struct dijkstraResult;
+
+string pathfindingToJson(grid &g, const bfsResult &res);
+string pathfindingToJson(grid &g, const dijkstraResult &res);
