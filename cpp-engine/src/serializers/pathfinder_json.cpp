@@ -35,6 +35,7 @@ static string pathfindingToJsonImpl(grid &g, const PathResult &res)
 
     out << "],";
     out << "\"found\":" << (res.found ? "true" : "false") << ",";
+    out << "\"algorithmRuntimeUs\":" << res.algorithmRuntimeUs << ",";
 
     out << "\"visitOrder\":[";
     for (size_t i = 0; i < res.visitOrder.size(); i++)

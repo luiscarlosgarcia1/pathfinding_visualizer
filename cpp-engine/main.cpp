@@ -6,6 +6,7 @@
 #include "algorithms/prims/maze_gen.hpp"
 #include "serializers/pathfinder_json.hpp"
 #include "serializers/grid_json.hpp"
+#include <chrono>
 #include <cstdlib>
 #include <iostream>
 #include <string>
@@ -54,17 +55,29 @@ int main(int argc, char* argv[]) {
         }
 
         if (algorithm == "bfs") {
-            cout << pathfindingToJson(g, bfs(g)) << endl;
+            auto startTime = chrono::steady_clock::now();
+            auto result = bfs(g);
+            auto endTime = chrono::steady_clock::now();
+            result.algorithmRuntimeUs = chrono::duration_cast<chrono::microseconds>(endTime - startTime).count();
+            cout << pathfindingToJson(g, result) << endl;
             return 0;
         }
 
         if (algorithm == "astar") {
-            cout << pathfindingToJson(g, astar(g)) << endl;
+            auto startTime = chrono::steady_clock::now();
+            auto result = astar(g);
+            auto endTime = chrono::steady_clock::now();
+            result.algorithmRuntimeUs = chrono::duration_cast<chrono::microseconds>(endTime - startTime).count();
+            cout << pathfindingToJson(g, result) << endl;
             return 0;
         }
 
         if (algorithm == "dijkstra") {
-            cout << pathfindingToJson(g, dijkstra(g)) << endl;
+            auto startTime = chrono::steady_clock::now();
+            auto result = dijkstra(g);
+            auto endTime = chrono::steady_clock::now();
+            result.algorithmRuntimeUs = chrono::duration_cast<chrono::microseconds>(endTime - startTime).count();
+            cout << pathfindingToJson(g, result) << endl;
             return 0;
         }
         return 1;

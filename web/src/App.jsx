@@ -42,6 +42,7 @@ const isValidCellIndex = (index, size) =>
 const buildGridFromPathfindingResult = (result) => {
   const dims = Number(result?.gridDims);
   const gridSize = Number(result?.gridSize);
+  const algorithmRuntimeUs = Number(result?.algorithmRuntimeUs);
   const expectedSize = dims * dims;
 
   if (!Number.isInteger(dims) || dims < 2) {
@@ -54,6 +55,10 @@ const buildGridFromPathfindingResult = (result) => {
 
   if (!Array.isArray(result?.cells) || result.cells.length !== gridSize) {
     throw new Error("Engine returned an invalid cells array.");
+  }
+
+  if (!Number.isFinite(algorithmRuntimeUs) || algorithmRuntimeUs < 0) {
+    throw new Error("Engine returned an invalid algorithm runtime.");
   }
 
   const baseGrid = result.cells.map((state, index) => ({
@@ -76,6 +81,7 @@ const buildGridFromPathfindingResult = (result) => {
     path,
     visitCount: visitOrder.length,
     pathCount: path.length,
+    runtimeMs: algorithmRuntimeUs / 1000,
   };
 };
 
@@ -138,7 +144,7 @@ function App() {
       let nextGrid = cloneGrid(baseGrid);
       const frameDurationMs = 1000 / 60;
       let lastFrameTime = 0;
-      const targetAnimationMs = 3000;
+      const targetAnimationMs = 0;
       const targetFrames = Math.max(1, Math.round(targetAnimationMs / frameDurationMs));
       const totalNodes = visitOrder.length + path.length;
       const nodesPerFrame = Math.max(1, Math.ceil(totalNodes / targetFrames));
@@ -259,7 +265,6 @@ function App() {
   };
 
   const runPathfindingAlgorithm = async (algorithmKey, algorithmLabel, endpoint) => {
-    const startTime = performance.now();
     setIsRunning(true);
     setActiveAlgorithm(algorithmKey);
     setRunStatus(`Running ${algorithmLabel}`);
@@ -273,13 +278,12 @@ function App() {
       }
 
       const nextState = buildGridFromPathfindingResult(payload.result);
-      const runtimeMs = performance.now() - startTime;
       setGridSize(nextState.dims);
       setEngineBaseGrid(nextState.baseGrid);
       setRunStatus(`Animating ${algorithmLabel}`);
       await animatePathfindingResult(nextState.baseGrid, nextState.visitOrder, nextState.path);
       updateAlgorithmStats(algorithmKey, {
-        runtimeMs,
+        runtimeMs: nextState.runtimeMs,
         visitedCells: nextState.visitCount,
         pathLength: nextState.pathCount,
       });
@@ -401,7 +405,7 @@ function App() {
             <thead>
               <tr>
                 <th>Algorithm</th>
-                <th>Total Runtime</th>
+                <th>Algorithm Runtime</th>
                 <th>Visited Cells</th>
                 <th>Path Length</th>
               </tr>

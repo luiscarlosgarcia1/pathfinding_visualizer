@@ -10,6 +10,7 @@ struct bfsResult {
     vector<int> visitOrder;
     deque<int> path;
     bool found = false;
+    long long algorithmRuntimeUs = 0;
 };
 
 bfsResult bfs(grid &g);
