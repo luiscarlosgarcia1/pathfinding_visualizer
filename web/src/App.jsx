@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 
 const DEFAULT_GRID_SIZE = 20;
@@ -20,6 +20,11 @@ const INITIAL_ALGORITHM_STATS = {
     pathLength: null,
   },
 };
+const TABLE_ROWS = [
+  { key: "bfs", label: "BFS" },
+  { key: "dijkstra", label: "Dijkstra" },
+  { key: "astar", label: "A*" },
+];
 
 const engineStateToUiState = (state) => {
   if (state === "Start") return "start";
@@ -39,6 +44,35 @@ const cloneGrid = (grid) => grid.map((cell) => ({ ...cell }));
 const isValidCellIndex = (index, size) =>
   Number.isInteger(index) && index >= 0 && index < size;
 
+const sanitizeIndexArray = (value, size) => {
+  if (!Array.isArray(value)) return [];
+
+  const sanitized = [];
+  const seen = new Set();
+
+  for (const candidate of value) {
+    const index = Number(candidate);
+    if (!isValidCellIndex(index, size) || seen.has(index)) continue;
+    seen.add(index);
+    sanitized.push(index);
+  }
+
+  return sanitized;
+};
+
+const buildGridFromSparseState = (gridSize, wallIndexes, startIndexes, endIndexes) => {
+  const nextGrid = Array.from({ length: gridSize }, (_, index) => ({
+    id: index,
+    state: "empty",
+  }));
+
+  for (const index of wallIndexes) nextGrid[index].state = "wall";
+  for (const index of startIndexes) nextGrid[index].state = "start";
+  for (const index of endIndexes) nextGrid[index].state = "end";
+
+  return nextGrid;
+};
+
 const buildGridFromPathfindingResult = (result) => {
   const dims = Number(result?.gridDims);
   const gridSize = Number(result?.gridSize);
@@ -53,25 +87,25 @@ const buildGridFromPathfindingResult = (result) => {
     throw new Error("Engine returned an invalid grid size.");
   }
 
-  if (!Array.isArray(result?.cells) || result.cells.length !== gridSize) {
-    throw new Error("Engine returned an invalid cells array.");
-  }
-
   if (!Number.isFinite(algorithmRuntimeUs) || algorithmRuntimeUs < 0) {
     throw new Error("Engine returned an invalid algorithm runtime.");
   }
 
-  const baseGrid = result.cells.map((state, index) => ({
-    id: index,
-    state: engineStateToUiState(state),
-  }));
+  const hasCellsArray = Array.isArray(result?.cells) && result.cells.length === gridSize;
+  const baseGrid = hasCellsArray
+    ? result.cells.map((state, index) => ({
+      id: index,
+      state: engineStateToUiState(state),
+    }))
+    : buildGridFromSparseState(
+      gridSize,
+      sanitizeIndexArray(result?.Wall ?? result?.wall, gridSize),
+      sanitizeIndexArray(result?.Start ?? result?.start, gridSize),
+      sanitizeIndexArray(result?.End ?? result?.end, gridSize),
+    );
 
-  const visitOrder = Array.isArray(result?.visitOrder)
-    ? result.visitOrder.filter((index) => isValidCellIndex(index, baseGrid.length))
-    : [];
-  const path = Array.isArray(result?.path)
-    ? result.path.filter((index) => isValidCellIndex(index, baseGrid.length))
-    : [];
+  const visitOrder = sanitizeIndexArray(result?.visitOrder, baseGrid.length);
+  const path = sanitizeIndexArray(result?.path, baseGrid.length);
 
   return {
     dims,
@@ -98,14 +132,18 @@ const buildGridFromGridResult = (result) => {
     throw new Error("Engine returned an invalid grid size.");
   }
 
-  if (!Array.isArray(result?.cells) || result.cells.length !== gridSize) {
-    throw new Error("Engine returned an invalid cells array.");
-  }
-
-  const nextGrid = result.cells.map((state, index) => ({
-    id: index,
-    state: engineStateToUiState(state),
-  }));
+  const hasCellsArray = Array.isArray(result?.cells) && result.cells.length === gridSize;
+  const nextGrid = hasCellsArray
+    ? result.cells.map((state, index) => ({
+      id: index,
+      state: engineStateToUiState(state),
+    }))
+    : buildGridFromSparseState(
+      gridSize,
+      sanitizeIndexArray(result?.Wall ?? result?.wall, gridSize),
+      sanitizeIndexArray(result?.Start ?? result?.start, gridSize),
+      sanitizeIndexArray(result?.End ?? result?.end, gridSize),
+    );
 
   return { dims, grid: nextGrid };
 };
@@ -120,8 +158,9 @@ function App() {
   const [activeAlgorithm, setActiveAlgorithm] = useState(null);
   const [algorithmStats, setAlgorithmStats] = useState(INITIAL_ALGORITHM_STATS);
   const animationRef = useRef({ frameId: null, resolve: null });
+  const gridRef = useRef(null);
 
-  const cancelGridAnimation = () => {
+  const cancelGridAnimation = useCallback(() => {
     if (animationRef.current.frameId !== null) {
       cancelAnimationFrame(animationRef.current.frameId);
       animationRef.current.frameId = null;
@@ -132,9 +171,9 @@ function App() {
       animationRef.current.resolve = null;
       resolve();
     }
-  };
+  }, []);
 
-  const animatePathfindingResult = (baseGrid, visitOrder, path) =>
+  const animatePathfindingResult = useCallback((baseGrid, visitOrder, path) =>
     new Promise((resolve) => {
       cancelGridAnimation();
       animationRef.current.resolve = resolve;
@@ -144,7 +183,7 @@ function App() {
       let nextGrid = cloneGrid(baseGrid);
       const frameDurationMs = 1000 / 60;
       let lastFrameTime = 0;
-      const targetAnimationMs = 0;
+      const targetAnimationMs = 5000;
       const targetFrames = Math.max(1, Math.round(targetAnimationMs / frameDurationMs));
       const totalNodes = visitOrder.length + path.length;
       const nodesPerFrame = Math.max(1, Math.ceil(totalNodes / targetFrames));
@@ -207,7 +246,7 @@ function App() {
       };
 
       animationRef.current.frameId = requestAnimationFrame(step);
-    });
+    }), [cancelGridAnimation]);
 
   useEffect(() => {
     const fetchServerStatus = async () => {
@@ -241,7 +280,7 @@ function App() {
         }
 
         setServerStatus(`Online (${health.service})`);
-      } catch (_error) {
+      } catch {
         setServerStatus("Offline: start the API server on port 3001");
       }
     };
@@ -251,9 +290,14 @@ function App() {
     return () => {
       cancelGridAnimation();
     };
-  }, []);
+  }, [cancelGridAnimation]);
 
-  const updateAlgorithmStats = (algorithmKey, nextMetrics) => {
+  useEffect(() => {
+    if (!gridRef.current) return;
+    gridRef.current.style.setProperty("--grid-columns", String(gridSize));
+  }, [gridSize]);
+
+  const updateAlgorithmStats = useCallback((algorithmKey, nextMetrics) => {
     setAlgorithmStats((prevStats) => ({
       ...prevStats,
       [algorithmKey]: {
@@ -262,9 +306,9 @@ function App() {
         pathLength: nextMetrics.pathLength,
       },
     }));
-  };
+  }, []);
 
-  const runPathfindingAlgorithm = async (algorithmKey, algorithmLabel, endpoint) => {
+  const runPathfindingAlgorithm = useCallback(async (algorithmKey, algorithmLabel, endpoint) => {
     setIsRunning(true);
     setActiveAlgorithm(algorithmKey);
     setRunStatus(`Running ${algorithmLabel}`);
@@ -292,20 +336,27 @@ function App() {
           ? `${algorithmLabel} complete, path found`
           : `${algorithmLabel} complete, path not found`,
       );
-    } catch (_error) {
+    } catch {
       setRunStatus("Failed");
     } finally {
       setIsRunning(false);
       setActiveAlgorithm(null);
     }
-  };
+  }, [animatePathfindingResult, updateAlgorithmStats]);
 
-  const runBfs = () => runPathfindingAlgorithm("bfs", "BFS", "/api/algorithms/bfs");
-  const runAstar = () => runPathfindingAlgorithm("astar", "A*", "/api/algorithms/astar");
-  const runDijkstra = () =>
-    runPathfindingAlgorithm("dijkstra", "Dijkstra", "/api/algorithms/dijkstra");
+  const runBfs = useCallback(() => {
+    void runPathfindingAlgorithm("bfs", "BFS", "/api/algorithms/bfs");
+  }, [runPathfindingAlgorithm]);
 
-  const resetGrid = async () => {
+  const runAstar = useCallback(() => {
+    void runPathfindingAlgorithm("astar", "A*", "/api/algorithms/astar");
+  }, [runPathfindingAlgorithm]);
+
+  const runDijkstra = useCallback(() => {
+    void runPathfindingAlgorithm("dijkstra", "Dijkstra", "/api/algorithms/dijkstra");
+  }, [runPathfindingAlgorithm]);
+
+  const resetGrid = useCallback(async () => {
     setIsRunning(true);
     setRunStatus("Clearing");
 
@@ -323,14 +374,14 @@ function App() {
       setGrid(nextState.grid);
       setEngineBaseGrid(cloneGrid(nextState.grid));
       setRunStatus("Idle");
-    } catch (_error) {
+    } catch {
       setRunStatus("Failed");
     } finally {
       setIsRunning(false);
     }
-  };
+  }, [cancelGridAnimation]);
 
-  const generateMaze = async () => {
+  const generateMaze = useCallback(async () => {
     setIsRunning(true);
     setRunStatus("Generating maze");
 
@@ -348,18 +399,62 @@ function App() {
       setGrid(nextState.grid);
       setEngineBaseGrid(cloneGrid(nextState.grid));
       setRunStatus("Maze generated");
-    } catch (_error) {
+    } catch {
       setRunStatus("Failed");
     } finally {
       setIsRunning(false);
     }
-  };
+  }, [cancelGridAnimation]);
 
-  const tableRows = [
-    { key: "bfs", label: "BFS" },
-    { key: "dijkstra", label: "Dijkstra" },
-    { key: "astar", label: "A*" },
-  ];
+  const handleGridClick = useCallback((event) => {
+    const target = event.target;
+    const gridElement = event.currentTarget;
+
+    if (!(target instanceof HTMLElement) || !(gridElement instanceof HTMLElement)) return;
+
+    const cellElement = target.closest("[data-cell-id]");
+    if (!(cellElement instanceof HTMLElement) || !gridElement.contains(cellElement)) return;
+
+    const cellId = Number(cellElement.dataset.cellId);
+    if (!isValidCellIndex(cellId, grid.length)) return;
+
+    // Single delegated listener for all cells.
+    cellElement.blur();
+  }, [grid.length]);
+
+  const gridCells = useMemo(() => grid.map((cell) => (
+    <button
+      key={cell.id}
+      type="button"
+      className={`cell ${cell.state}`}
+      data-cell-id={cell.id}
+      aria-label={`Cell ${cell.id}`}
+    />
+  )), [grid]);
+
+  const metricsRows = useMemo(() => TABLE_ROWS.map((row) => {
+    const metrics = algorithmStats[row.key];
+    return (
+      <tr key={row.key}>
+        <td>{row.label}</td>
+        <td>
+          {typeof metrics.runtimeMs === "number"
+            ? `${metrics.runtimeMs.toFixed(2)} ms`
+            : EMPTY_METRIC}
+        </td>
+        <td>
+          {typeof metrics.visitedCells === "number"
+            ? metrics.visitedCells
+            : EMPTY_METRIC}
+        </td>
+        <td>
+          {typeof metrics.pathLength === "number"
+            ? metrics.pathLength
+            : EMPTY_METRIC}
+        </td>
+      </tr>
+    );
+  }), [algorithmStats]);
 
   return (
     <main className="page">
@@ -387,16 +482,11 @@ function App() {
 
       <section className="content-layout">
         <section
+          ref={gridRef}
           className="grid"
-          style={{ gridTemplateColumns: `repeat(${gridSize}, 1fr)` }}
+          onClick={handleGridClick}
         >
-          {grid.map((cell) => (
-            <button
-              key={cell.id}
-              className={`cell ${cell.state}`}
-              aria-label={`Cell ${cell.id}`}
-            />
-          ))}
+          {gridCells}
         </section>
 
         <aside className="metrics-panel">
@@ -410,31 +500,7 @@ function App() {
                 <th>Path Length</th>
               </tr>
             </thead>
-            <tbody>
-              {tableRows.map((row) => {
-                const metrics = algorithmStats[row.key];
-                return (
-                  <tr key={row.key}>
-                    <td>{row.label}</td>
-                    <td>
-                      {typeof metrics.runtimeMs === "number"
-                        ? `${metrics.runtimeMs.toFixed(2)} ms`
-                        : EMPTY_METRIC}
-                    </td>
-                    <td>
-                      {typeof metrics.visitedCells === "number"
-                        ? metrics.visitedCells
-                        : EMPTY_METRIC}
-                    </td>
-                    <td>
-                      {typeof metrics.pathLength === "number"
-                        ? metrics.pathLength
-                        : EMPTY_METRIC}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
+            <tbody>{metricsRows}</tbody>
           </table>
 
           <p className="run-status">Run Status: {runStatus}</p>

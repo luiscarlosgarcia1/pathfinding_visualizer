@@ -5,7 +5,7 @@
 #include "algorithms/dijkstra/dijkstra.hpp"
 #include <sstream>
 
-static const char* pathStateToString(State s) {
+static string StateToString(State s) {
     switch (s) {
         case State::Empty: return "Empty";
         case State::Wall: return "Wall";
@@ -16,24 +16,10 @@ static const char* pathStateToString(State s) {
 }
 
 template <typename PathResult>
-static string pathfindingToJsonImpl(grid &g, const PathResult &res)
+static string pathfindingFields(grid &g, const PathResult &res)
 {
     ostringstream out;
 
-    out << "{";
-    out << "\"gridDims\":" << g.getGridDims() << ",";
-    out << "\"gridSize\":" << g.getGridSize() << ",";
-    out << "\"cells\":[";
-
-    const auto& cells = g.getCells();
-    for (size_t i = 0; i < cells.size(); i++)
-    {
-        out << "\"" << pathStateToString(cells[i]) << "\"";
-        if (i < cells.size() - 1)
-            out << ",";
-    }
-
-    out << "],";
     out << "\"found\":" << (res.found ? "true" : "false") << ",";
     out << "\"algorithmRuntimeUs\":" << res.algorithmRuntimeUs << ",";
 
@@ -54,22 +40,38 @@ static string pathfindingToJsonImpl(grid &g, const PathResult &res)
             out << ",";
     }
     out << "]";
+
+    return out.str();
+}
+
+
+string pathfindingToJson(grid& g, const bfsResult &res) {
+    ostringstream out;
+    
+    out << "{\"pathfinder\":{";
+    out << pathfindingFields(g, res);
     out << "}";
 
     return out.str();
 }
 
-string pathfindingToJson(grid &g, const bfsResult &res)
-{
-    return pathfindingToJsonImpl(g, res);
+string pathfindingToJson(grid& g, const dijkstraResult &res) {
+    ostringstream out;
+    
+    out << "{\"pathfinder\":{";
+    out << pathfindingFields(g, res);
+    out << "}";
+
+    return out.str();
 }
 
-string pathfindingToJson(grid &g, const astarResult &res)
-{
-    return pathfindingToJsonImpl(g, res);
-}
 
-string pathfindingToJson(grid &g, const dijkstraResult &res)
-{
-    return pathfindingToJsonImpl(g, res);
+string pathfindingToJson(grid& g, const astarResult &res) {
+    ostringstream out;
+    
+    out << "{\"pathfinder\":{";
+    out << pathfindingFields(g, res);
+    out << "}";
+
+    return out.str();
 }

@@ -1,7 +1,9 @@
 
 #include "grid_json.hpp"
+#include <vector>
 
-static const char* stateToString(State s) {
+static string stateToString(State s)
+{
     switch (s) {
         case State::Empty: return "Empty";
         case State::Wall: return "Wall";
@@ -10,25 +12,54 @@ static const char* stateToString(State s) {
         default: return "Empty";
     }
 }
+static int stateToInt(State s) 
+{
+    switch (s) {
+        case State::Empty: return 0;
+        case State::Wall: return 1;
+        case State::Start: return 2;
+        case State::End: return 3;
+        default: return 0;
+    }
+}
 
-string gridToJson(grid& g) {
+static string gridFields(grid& g) {
+    vector<vector<int>> V(4);
+
+    const auto &cells = g.getCells();
+    for (int i = 0; i < cells.size(); i++)
+        V[stateToInt(cells[i])].push_back(i);
+
     ostringstream out;
 
-    out << "{";
     out << "\"gridDims\":" << g.getGridDims() << ",";
     out << "\"gridSize\":" << g.getGridSize() << ",";
-    out << "\"cells\":[";
-    
-    const auto& cells = g.getCells();
-    for (size_t i = 0; i < cells.size(); i++) 
-    {
-        out << "\"" << stateToString(cells[i]) << "\"";
 
-        if (i < cells.size() - 1)
+    for (int i = 1; i < V.size(); i++)
+    {
+        out << "\"" << stateToString(cells[V[i][0]]) << "\":[";
+
+        for (int j = 0; j < V[i].size(); j++)
+        {
+            out << V[i][j];
+            if (j < V[i].size() - 1)
+                out << ",";
+        }
+        
+        out << "]";
+        if (i < V.size() - 1)
             out << ",";
     }
 
-    out << "]";
+    return out.str();
+}
+
+string gridToJson(grid& g) {
+    ostringstream out;
+    
+    out << "{\"grid\":{";
+    out << gridFields(g);
     out << "}";
+
     return out.str();
 }

@@ -79,6 +79,7 @@
 
 .grid {
   display: grid;
+  grid-template-columns: repeat(var(--grid-columns, 20), minmax(0, 1fr));
   gap: 2px;
   width: var(--grid-size);
   height: var(--grid-size);

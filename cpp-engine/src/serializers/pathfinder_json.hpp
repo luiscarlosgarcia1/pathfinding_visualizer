@@ -1,5 +1,6 @@
 #pragma once
 #include "grid.hpp"
+#include "grid_json.hpp"
 #include <string>
 using namespace std;
 
