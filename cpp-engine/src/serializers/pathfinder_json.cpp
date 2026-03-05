@@ -1,6 +1,7 @@
 
 #include "pathfinder_json.hpp"
 #include "algorithms/bfs/bfs.hpp"
+#include "algorithms/astar/astar.hpp"
 #include "algorithms/dijkstra/dijkstra.hpp"
 #include <sstream>
 
@@ -58,6 +59,11 @@ static string pathfindingToJsonImpl(grid &g, const PathResult &res)
 }
 
 string pathfindingToJson(grid &g, const bfsResult &res)
+{
+    return pathfindingToJsonImpl(g, res);
+}
+
+string pathfindingToJson(grid &g, const astarResult &res)
 {
     return pathfindingToJsonImpl(g, res);
 }

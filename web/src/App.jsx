@@ -297,6 +297,7 @@ function App() {
   };
 
   const runBfs = () => runPathfindingAlgorithm("bfs", "BFS", "/api/algorithms/bfs");
+  const runAstar = () => runPathfindingAlgorithm("astar", "A*", "/api/algorithms/astar");
   const runDijkstra = () =>
     runPathfindingAlgorithm("dijkstra", "Dijkstra", "/api/algorithms/dijkstra");
 
@@ -371,6 +372,9 @@ function App() {
           </button>
           <button onClick={runDijkstra} disabled={isRunning}>
             {isRunning && activeAlgorithm === "dijkstra" ? "Running..." : "Run Dijkstra"}
+          </button>
+          <button onClick={runAstar} disabled={isRunning}>
+            {isRunning && activeAlgorithm === "astar" ? "Running..." : "Run A*"}
           </button>
           <button onClick={resetGrid} disabled={isRunning || !engineBaseGrid}>Clear Grid</button>
           <button onClick={generateMaze} disabled={isRunning}>Generate Maze</button>

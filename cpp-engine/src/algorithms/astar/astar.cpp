@@ -3,6 +3,8 @@
 #include <queue>
 #include <math.h>
 
+static int heuristic(grid& grid, int cell);
+
 struct astarContext {
     grid &grid;
     priority_queue< pair<int, int>, vector<pair<int, int>>, greater<pair<int, int>> > mpq; // min-priority queue (distance, cellIdx)
@@ -24,7 +26,6 @@ struct astarContext {
 
 static void updateNeighbors(astarContext &ctx, int curCell);
 static void createPath(astarContext &ctx, int endIndx);
-static int heuristic(grid& grid, int cell);
 
 astarResult astar(grid &grid)
 {

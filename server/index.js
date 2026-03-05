@@ -180,6 +180,22 @@ app.post("/api/algorithms/dijkstra", async (_req, res) => {
   }
 });
 
+app.post("/api/algorithms/astar", async (_req, res) => {
+  if (!(await ensureEngineBinary(res, "A*"))) return;
+
+  try {
+    const args = getPathfindingArgs("astar");
+    const result = await runEngine(args);
+    res.json({ ok: true, result });
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      error: "Failed to run A* engine",
+      details: error instanceof Error ? error.message : "Unknown engine error",
+    });
+  }
+});
+
 app.post("/api/algorithms/maze", async (_req, res) => {
   if (!(await ensureEngineBinary(res, "Maze"))) return;
 

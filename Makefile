@@ -6,6 +6,7 @@ SRC := \
 	cpp-engine/src/grid.cpp \
 	cpp-engine/src/config/grid_size_reader.cpp \
 	cpp-engine/src/algorithms/bfs/bfs.cpp \
+	cpp-engine/src/algorithms/astar/astar.cpp \
 	cpp-engine/src/algorithms/dijkstra/dijkstra.cpp \
 	cpp-engine/src/algorithms/prims/maze_gen.cpp \
 	cpp-engine/src/serializers/grid_json.cpp \

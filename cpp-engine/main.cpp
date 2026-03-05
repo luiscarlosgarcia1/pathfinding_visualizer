@@ -1,6 +1,7 @@
 
 #include "grid.hpp"
 #include "algorithms/bfs/bfs.hpp"
+#include "algorithms/astar/astar.hpp"
 #include "algorithms/dijkstra/dijkstra.hpp"
 #include "algorithms/prims/maze_gen.hpp"
 #include "serializers/pathfinder_json.hpp"
@@ -54,6 +55,11 @@ int main(int argc, char* argv[]) {
 
         if (algorithm == "bfs") {
             cout << pathfindingToJson(g, bfs(g)) << endl;
+            return 0;
+        }
+
+        if (algorithm == "astar") {
+            cout << pathfindingToJson(g, astar(g)) << endl;
             return 0;
         }
 
