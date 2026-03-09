@@ -25,6 +25,12 @@
         ]
       }
     },
+    "weights": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      }
+    },
     "found": {
       "type": "boolean"
     },
@@ -47,6 +53,7 @@
     "gridDims",
     "gridSize",
     "cells",
+    "weights",
     "found",
     "visitOrder",
     "path"

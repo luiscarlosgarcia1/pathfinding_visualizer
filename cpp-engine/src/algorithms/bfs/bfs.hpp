@@ -11,6 +11,7 @@ struct bfsResult {
     deque<int> path;
     bool found = false;
     long long algorithmRuntimeUs = 0;
+    int totalDistance = 0;
 };
 
 bfsResult bfs(grid &g);

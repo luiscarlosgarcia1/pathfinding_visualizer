@@ -9,6 +9,7 @@ struct astarResult {
     deque<int> path;
     bool found = false;
     long long algorithmRuntimeUs = 0;
+    int totalDistance = 0;
 };
 
 astarResult astar(grid &g);

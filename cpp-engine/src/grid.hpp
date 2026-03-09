@@ -21,7 +21,6 @@ private:
     int endIdx;
     
     vector<State> cells;
-    vector<int> weights;
     
 
 
@@ -46,4 +45,6 @@ public:
 
     vector<State>& getCells();
     vector<int>& getWeights();
+
+    vector<int> weights;
 };

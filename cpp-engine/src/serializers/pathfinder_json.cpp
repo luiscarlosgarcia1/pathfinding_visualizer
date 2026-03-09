@@ -5,23 +5,14 @@
 #include "algorithms/dijkstra/dijkstra.hpp"
 #include <sstream>
 
-static string StateToString(State s) {
-    switch (s) {
-        case State::Empty: return "Empty";
-        case State::Wall: return "Wall";
-        case State::Start: return "Start";
-        case State::End: return "End";
-        default: return "Empty";
-    }
-}
-
 template <typename PathResult>
-static string pathfindingFields(grid &g, const PathResult &res)
+static string pathfindingFields(const PathResult &res)
 {
     ostringstream out;
 
     out << "\"found\":" << (res.found ? "true" : "false") << ",";
     out << "\"algorithmRuntimeUs\":" << res.algorithmRuntimeUs << ",";
+    out << "\"totalDistance\":" << res.totalDistance << ",";
 
     out << "\"visitOrder\":[";
     for (size_t i = 0; i < res.visitOrder.size(); i++)
@@ -45,32 +36,32 @@ static string pathfindingFields(grid &g, const PathResult &res)
 }
 
 
-string pathfindingToJson(grid& g, const bfsResult &res) {
+string pathfindingToJson(const bfsResult &res) {
     ostringstream out;
     
     out << "{\"pathfinder\":{";
-    out << pathfindingFields(g, res);
+    out << pathfindingFields(res);
     out << "}";
 
     return out.str();
 }
 
-string pathfindingToJson(grid& g, const dijkstraResult &res) {
+string pathfindingToJson(const dijkstraResult &res) {
     ostringstream out;
     
     out << "{\"pathfinder\":{";
-    out << pathfindingFields(g, res);
+    out << pathfindingFields(res);
     out << "}";
 
     return out.str();
 }
 
 
-string pathfindingToJson(grid& g, const astarResult &res) {
+string pathfindingToJson(const astarResult &res) {
     ostringstream out;
     
     out << "{\"pathfinder\":{";
-    out << pathfindingFields(g, res);
+    out << pathfindingFields(res);
     out << "}";
 
     return out.str();

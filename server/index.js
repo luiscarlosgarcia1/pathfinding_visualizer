@@ -47,6 +47,19 @@ const sanitizeIndexArray = (value, gridSize) => {
   return out;
 };
 
+const sanitizeWeightArray = (value, gridSize) => {
+  const out = Array.from({ length: gridSize }, () => 0);
+  if (!Array.isArray(value)) return out;
+
+  const limit = Math.min(value.length, gridSize);
+  for (let index = 0; index < limit; index += 1) {
+    const weight = Number(value[index]);
+    out[index] = Number.isFinite(weight) ? weight : 0;
+  }
+
+  return out;
+};
+
 const parseEngineOutput = (raw) => {
   try {
     return JSON.parse(raw);
@@ -185,6 +198,7 @@ const normalizeGridResult = (rawResult) => {
     Wall: sanitizeIndexArray(payload?.Wall ?? payload?.wall, gridSize),
     Start: sanitizeIndexArray(payload?.Start ?? payload?.start, gridSize),
     End: sanitizeIndexArray(payload?.End ?? payload?.end, gridSize),
+    weights: sanitizeWeightArray(payload?.weights, gridSize),
   };
 };
 
@@ -210,6 +224,11 @@ const normalizePathfindingResult = (rawResult, baseGrid, algorithm) => {
     throw new Error("Pathfinder serializer returned invalid algorithmRuntimeUs");
   }
 
+  const totalDistance = Number(payload?.totalDistance);
+  if (!Number.isFinite(totalDistance)) {
+    throw new Error("Pathfinder serializer returned invalid totalDistance");
+  }
+
   return {
     gridDims,
     gridSize,
@@ -219,6 +238,8 @@ const normalizePathfindingResult = (rawResult, baseGrid, algorithm) => {
     found: Boolean(payload?.found),
     algorithm,
     algorithmRuntimeUs,
+    totalDistance,
+    weights: sanitizeWeightArray(payload?.weights ?? baseGrid.weights, gridSize),
     visitOrder: sanitizeIndexArray(payload?.visitOrder ?? payload?.visited, gridSize),
     path: sanitizeIndexArray(payload?.path, gridSize),
   };

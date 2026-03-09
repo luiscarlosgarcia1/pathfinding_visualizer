@@ -9,6 +9,7 @@ struct dijkstraResult {
     deque<int> path;
     bool found = false;
     long long algorithmRuntimeUs = 0;
+    int totalDistance = 0;
 };
 
 dijkstraResult dijkstra(grid &g);

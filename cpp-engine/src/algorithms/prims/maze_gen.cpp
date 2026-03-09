@@ -123,9 +123,15 @@ static void popFrontier(mazeContex &ctx, int frontierIndx)
 static void setWeight(mazeContex &ctx, int cell)
 {
     auto &weights = ctx.grid.getWeights();
+    int parentCell = cell - ctx.direction[cell];
+    int prevWeight = weights[parentCell];
+    int delta = (rand() % 6) - 2; // [-2, +3] to create broader local variation.
+    int newWeight = prevWeight + delta;
 
-    int prevWeight = weights[cell - ctx.direction[cell]];
-    int newWeight = prevWeight + (rand() % 2 ? 1 : -1);
+    if (newWeight < 1)
+        newWeight = 1;
+    if (newWeight > 9)
+        newWeight = 9;
 
     weights[cell] = newWeight;
 }

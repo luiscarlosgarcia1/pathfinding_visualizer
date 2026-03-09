@@ -3,7 +3,8 @@
 #include <queue>
 #include <math.h>
 
-static int heuristic(grid& grid, int cell);
+struct astarContext;
+static int heuristic(const astarContext &ctx, int cell);
 
 struct astarContext {
     grid &grid;
@@ -20,7 +21,7 @@ struct astarContext {
         seen = vector<bool>(g.getGridSize(), false);
 
         distances[g.getStart()] = 0;    // set start cell distance to 0
-        mpq.push({ distances[g.getStart()] + heuristic(g, g.getStart()), g.getStart() });    // initialize min-priority queue with start
+        mpq.push({ heuristic(*this, g.getStart()), g.getStart() });    // initialize min-priority queue with start
     }
 };
 
@@ -66,6 +67,7 @@ astarResult astar(grid &grid)
 static void updateNeighbors(astarContext &ctx, int curCell)
 {    
     int rowLength = ctx.grid.getGridDims();
+    const auto &weights = ctx.grid.getWeights();
 
     // up, right, down, left in grid
     int steps[4] = { -rowLength, 1, rowLength, -1 };
@@ -86,12 +88,14 @@ static void updateNeighbors(astarContext &ctx, int curCell)
         if (ctx.grid.isWall(possibleNeighbor))
             continue;
 
-        // if cidst < ndist
-        if (ctx.distances[curCell] + 1 < ctx.distances[possibleNeighbor])
+        int stepCost = weights[possibleNeighbor];
+        if (stepCost < 1) stepCost = 1;
+
+        if (ctx.distances[curCell] + stepCost < ctx.distances[possibleNeighbor])
         {
-            ctx.distances[possibleNeighbor] = ctx.distances[curCell] + 1;
+            ctx.distances[possibleNeighbor] = ctx.distances[curCell] + stepCost;
             ctx.parents[possibleNeighbor] = curCell;
-            ctx.mpq.push({ ctx.distances[possibleNeighbor] + heuristic(ctx.grid, possibleNeighbor), possibleNeighbor });
+            ctx.mpq.push({ heuristic(ctx, possibleNeighbor), possibleNeighbor });
         }
     }
 }
@@ -100,25 +104,32 @@ static void createPath(astarContext &ctx, int endIndx)
 {
     int child = endIndx;
 
-    while (!ctx.grid.isStart(ctx.parents[child]))
+    while (!ctx.grid.isStart(child))
     {
-        child = ctx.parents[child];
-        ctx.res.path.push_front(child);
+        int parent = ctx.parents[child];
+        if (parent == -1)
+            break;
+
+        int edgeCost = ctx.grid.weights[child];
+        ctx.res.totalDistance += (edgeCost < 1) ? 1 : edgeCost;
+
+        if (!ctx.grid.isEnd(child))
+            ctx.res.path.push_front(child);
+
+        child = parent;
     }
 }
 
-static int heuristic(grid& grid, int cell)
+static int heuristic(const astarContext &ctx, int cell)
 {
     int start = cell;
-    int end = grid.getEnd();
-    int dims = grid.getGridDims();
+    int end = ctx.grid.getEnd();
+    int dims = ctx.grid.getGridDims();
 
     int srow = start / dims;
     int scol = start % dims;
     int erow = end / dims;
     int ecol = end % dims;
 
-
-
-    return abs(erow - srow) + abs(ecol - scol);
+    return ctx.distances[cell] + abs(erow - srow) + abs(ecol - scol);
 }

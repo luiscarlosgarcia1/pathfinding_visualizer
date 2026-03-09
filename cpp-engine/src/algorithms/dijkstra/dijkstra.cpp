@@ -63,6 +63,7 @@ dijkstraResult dijkstra(grid &grid)
 static void updateNeighbors(dijkstraContext &ctx, int curCell, int curDist)
 {    
     int rowLength = ctx.grid.getGridDims();
+    const auto &weights = ctx.grid.getWeights();
 
     // up, right, down, left in grid
     int steps[4] = { -rowLength, 1, rowLength, -1 };
@@ -83,10 +84,13 @@ static void updateNeighbors(dijkstraContext &ctx, int curCell, int curDist)
         if (ctx.grid.isWall(possibleNeighbor))
             continue;
 
-        // if cidst < ndist
-        if (curDist + 1 < ctx.distances[possibleNeighbor])
+        int stepCost = weights[possibleNeighbor];
+        if (stepCost < 1)
+            stepCost = 1;
+
+        if (curDist + stepCost < ctx.distances[possibleNeighbor])
         {
-            ctx.distances[possibleNeighbor] = curDist + 1;
+            ctx.distances[possibleNeighbor] = curDist + stepCost;
             ctx.parents[possibleNeighbor] = curCell;
             ctx.mpq.push({ ctx.distances[possibleNeighbor], possibleNeighbor });
         }
@@ -97,9 +101,17 @@ static void createPath(dijkstraContext &ctx, int endIndx)
 {
     int child = endIndx;
 
-    while (!ctx.grid.isStart(ctx.parents[child]))
+    while (!ctx.grid.isStart(child))
     {
+        if (ctx.parents[child] == -1)
+            break;
+
+        int edgeCost = ctx.grid.weights[child];
+        ctx.res.totalDistance += (edgeCost < 1) ? 1 : edgeCost;
+
+        if (!ctx.grid.isEnd(child))
+            ctx.res.path.push_front(child);
+
         child = ctx.parents[child];
-        ctx.res.path.push_front(child);
     }
 }

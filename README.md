@@ -50,34 +50,34 @@ npm run dev
 ## Features Implemented So Far
 
 - BFS, Dijkstra, and A* pathfinding in the C++ engine.
-- Prim's maze generation in the C++ engine.
+- Weighted path cost support for Dijkstra and A* (`stepCost = max(1, cellWeight)`).
+- Path total distance metric emitted by all algorithms.
+- Prim's maze generation with additional carved connectors so mazes include loops/multiple valid routes.
+- Per-cell weight generation during maze carving.
 - Config-driven grid dimensions (`grid_size` in `configs/config.json`).
 - Engine modes for `empty`, `maze`, `pathfind-empty`, and `pathfind-maze`.
 - Express API endpoints for health, config, base grid, maze generation, BFS, Dijkstra, A*, and clear.
 - Sparse integer serializer/API contract:
-  - Base grid returns index arrays for `Wall`, `Start`, and `End`.
-  - Pathfinding returns `visitOrder` and `path` index arrays plus runtime/found state.
+  - Base grid returns index arrays for `Wall`, `Start`, `End`, plus full `weights`.
+  - Pathfinding returns `visitOrder`, `path`, runtime, found state, and `totalDistance`.
   - Cells not included in those arrays are treated as empty by the frontend.
 - Deterministic maze + pathfinding runs per generated maze seed while the current maze layout is active.
-- React visualization for grid state (`empty`, `wall`, `start`, `end`, `visited`, `path`), run status, and per-algorithm metrics (runtime, visited cells, path length).
+- React visualization for grid state (`empty`, `wall`, `start`, `end`, `visited`, `path`) with:
+  - weight-based color gradients for empty and visited cells,
+  - run status,
+  - per-algorithm metrics (runtime, visited cells, path length, total distance).
 
 ## Design Choices
 
 - **C++ engine for algorithms**: pathfinding/maze logic runs in native code for performance and clear algorithm isolation.
 - **Sparse payload contract**: engine/API communicate with integer index arrays instead of full per-cell state arrays to reduce payload size and serialization overhead.
+- **Hybrid weighted model**:
+  - BFS remains unweighted for traversal behavior.
+  - Dijkstra and A* optimize weighted path cost using per-cell weights with a minimum step cost of `1`.
 - **Node/Express orchestration layer**: server manages process execution, timeout handling, layout seed state, base-grid caching, and API normalization.
 - **React frontend for visualization**: UI reconstructs view state from sparse payloads and focuses on rendering + animation + metrics.
 - **CLI-style engine contract**: engine prints JSON to stdout, keeping integration simple between C++ and JS layers.
 - **Config-first grid sizing**: grid dimensions come from `configs/config.json`, with fallback logic in `grid_size_reader.cpp`.
-
-## Future Plan
-
-- Add weighted graph support as the next milestone.
-- Add weighted-cell data to the engine model and serializer contract (without regressing current sparse index design).
-- Update API + frontend payload handling to include and render weights.
-- Add weighted editing controls in the UI (set/remove weights, reset behavior, and clear UX feedback).
-- Update Dijkstra/A* to use edge/cell weights and keep BFS behavior explicitly unweighted.
-- Add weighted-run metrics (for example total path cost) alongside runtime, visited cells, and path length.
 
 ## Known Bugs
 

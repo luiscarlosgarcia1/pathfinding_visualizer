@@ -87,9 +87,17 @@ static void createPath(bfsContext &ctx, int endIndx)
 {
     int child = endIndx;
 
-    while (!ctx.grid.isStart(ctx.parents[child]))
+    while (!ctx.grid.isStart(child))
     {
+        if (ctx.parents[child] == -1)
+            break;
+
+        int stepCost = ctx.grid.weights[child];
+        ctx.res.totalDistance += (stepCost < 1) ? 1 : stepCost;
+
+        if (!ctx.grid.isEnd(child))
+            ctx.res.path.push_front(child);
+
         child = ctx.parents[child];
-        ctx.res.path.push_front(child);
     }
 }

@@ -59,7 +59,7 @@ int main(int argc, char* argv[]) {
             auto result = bfs(g);
             auto endTime = chrono::steady_clock::now();
             result.algorithmRuntimeUs = chrono::duration_cast<chrono::microseconds>(endTime - startTime).count();
-            cout << pathfindingToJson(g, result) << endl;
+            cout << pathfindingToJson(result) << endl;
             return 0;
         }
 
@@ -68,7 +68,7 @@ int main(int argc, char* argv[]) {
             auto result = astar(g);
             auto endTime = chrono::steady_clock::now();
             result.algorithmRuntimeUs = chrono::duration_cast<chrono::microseconds>(endTime - startTime).count();
-            cout << pathfindingToJson(g, result) << endl;
+            cout << pathfindingToJson(result) << endl;
             return 0;
         }
 
@@ -77,7 +77,7 @@ int main(int argc, char* argv[]) {
             auto result = dijkstra(g);
             auto endTime = chrono::steady_clock::now();
             result.algorithmRuntimeUs = chrono::duration_cast<chrono::microseconds>(endTime - startTime).count();
-            cout << pathfindingToJson(g, result) << endl;
+            cout << pathfindingToJson(result) << endl;
             return 0;
         }
         return 1;

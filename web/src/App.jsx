@@ -8,16 +8,19 @@ const INITIAL_ALGORITHM_STATS = {
     runtimeMs: null,
     visitedCells: null,
     pathLength: null,
+    totalDistance: null,
   },
   dijkstra: {
     runtimeMs: null,
     visitedCells: null,
     pathLength: null,
+    totalDistance: null,
   },
   astar: {
     runtimeMs: null,
     visitedCells: null,
     pathLength: null,
+    totalDistance: null,
   },
 };
 const TABLE_ROWS = [
@@ -37,6 +40,7 @@ const createPlaceholderGrid = (size) =>
   Array.from({ length: size * size }, (_, index) => ({
     id: index,
     state: "empty",
+    weight: 0,
   }));
 
 const cloneGrid = (grid) => grid.map((cell) => ({ ...cell }));
@@ -60,10 +64,24 @@ const sanitizeIndexArray = (value, size) => {
   return sanitized;
 };
 
-const buildGridFromSparseState = (gridSize, wallIndexes, startIndexes, endIndexes) => {
+const sanitizeWeightArray = (value, size) => {
+  const sanitized = Array.from({ length: size }, () => 0);
+  if (!Array.isArray(value)) return sanitized;
+
+  const limit = Math.min(value.length, size);
+  for (let index = 0; index < limit; index += 1) {
+    const weight = Number(value[index]);
+    sanitized[index] = Number.isFinite(weight) ? weight : 0;
+  }
+
+  return sanitized;
+};
+
+const buildGridFromSparseState = (gridSize, wallIndexes, startIndexes, endIndexes, weights) => {
   const nextGrid = Array.from({ length: gridSize }, (_, index) => ({
     id: index,
     state: "empty",
+    weight: weights[index] ?? 0,
   }));
 
   for (const index of wallIndexes) nextGrid[index].state = "wall";
@@ -77,6 +95,7 @@ const buildGridFromPathfindingResult = (result) => {
   const dims = Number(result?.gridDims);
   const gridSize = Number(result?.gridSize);
   const algorithmRuntimeUs = Number(result?.algorithmRuntimeUs);
+  const totalDistance = Number(result?.totalDistance);
   const expectedSize = dims * dims;
 
   if (!Number.isInteger(dims) || dims < 2) {
@@ -91,17 +110,25 @@ const buildGridFromPathfindingResult = (result) => {
     throw new Error("Engine returned an invalid algorithm runtime.");
   }
 
+  if (!Number.isFinite(totalDistance)) {
+    throw new Error("Engine returned an invalid total distance.");
+  }
+
+  const weights = sanitizeWeightArray(result?.weights, gridSize);
+
   const hasCellsArray = Array.isArray(result?.cells) && result.cells.length === gridSize;
   const baseGrid = hasCellsArray
     ? result.cells.map((state, index) => ({
       id: index,
       state: engineStateToUiState(state),
+      weight: weights[index] ?? 0,
     }))
     : buildGridFromSparseState(
       gridSize,
       sanitizeIndexArray(result?.Wall ?? result?.wall, gridSize),
       sanitizeIndexArray(result?.Start ?? result?.start, gridSize),
       sanitizeIndexArray(result?.End ?? result?.end, gridSize),
+      weights,
     );
 
   const visitOrder = sanitizeIndexArray(result?.visitOrder, baseGrid.length);
@@ -116,6 +143,7 @@ const buildGridFromPathfindingResult = (result) => {
     visitCount: visitOrder.length,
     pathCount: path.length,
     runtimeMs: algorithmRuntimeUs / 1000,
+    totalDistance,
   };
 };
 
@@ -132,17 +160,20 @@ const buildGridFromGridResult = (result) => {
     throw new Error("Engine returned an invalid grid size.");
   }
 
+  const weights = sanitizeWeightArray(result?.weights, gridSize);
   const hasCellsArray = Array.isArray(result?.cells) && result.cells.length === gridSize;
   const nextGrid = hasCellsArray
     ? result.cells.map((state, index) => ({
       id: index,
       state: engineStateToUiState(state),
+      weight: weights[index] ?? 0,
     }))
     : buildGridFromSparseState(
       gridSize,
       sanitizeIndexArray(result?.Wall ?? result?.wall, gridSize),
       sanitizeIndexArray(result?.Start ?? result?.start, gridSize),
       sanitizeIndexArray(result?.End ?? result?.end, gridSize),
+      weights,
     );
 
   return { dims, grid: nextGrid };
@@ -304,6 +335,7 @@ function App() {
         runtimeMs: nextMetrics.runtimeMs,
         visitedCells: nextMetrics.visitedCells,
         pathLength: nextMetrics.pathLength,
+        totalDistance: nextMetrics.totalDistance,
       },
     }));
   }, []);
@@ -330,6 +362,7 @@ function App() {
         runtimeMs: nextState.runtimeMs,
         visitedCells: nextState.visitCount,
         pathLength: nextState.pathCount,
+        totalDistance: nextState.totalDistance,
       });
       setRunStatus(
         nextState.found
@@ -422,15 +455,58 @@ function App() {
     cellElement.blur();
   }, [grid.length]);
 
-  const gridCells = useMemo(() => grid.map((cell) => (
-    <button
-      key={cell.id}
-      type="button"
-      className={`cell ${cell.state}`}
-      data-cell-id={cell.id}
-      aria-label={`Cell ${cell.id}`}
-    />
-  )), [grid]);
+  const weightRange = useMemo(() => {
+    if (grid.length === 0) return { min: 0, max: 0 };
+
+    let min = Number.POSITIVE_INFINITY;
+    let max = Number.NEGATIVE_INFINITY;
+
+    for (const cell of grid) {
+      const weight = Number(cell.weight ?? 0);
+      if (weight < min) min = weight;
+      if (weight > max) max = weight;
+    }
+
+    return { min, max };
+  }, [grid]);
+
+  const gridCells = useMemo(() => grid.map((cell) => {
+    let style;
+    if (cell.state === "empty") {
+      const weight = Number(cell.weight ?? 0);
+      const range = weightRange.max - weightRange.min;
+      const normalized = range > 0 ? (weight - weightRange.min) / range : 0;
+      const low = { r: 255, g: 255, b: 255 };
+      const high = { r: 48, g: 88, b: 150 };
+      const r = Math.round(low.r + (high.r - low.r) * normalized);
+      const g = Math.round(low.g + (high.g - low.g) * normalized);
+      const b = Math.round(low.b + (high.b - low.b) * normalized);
+      style = { backgroundColor: `rgb(${r}, ${g}, ${b})` };
+    }
+
+    if (cell.state === "visited") {
+      const weight = Number(cell.weight ?? 0);
+      const range = weightRange.max - weightRange.min;
+      const normalized = range > 0 ? (weight - weightRange.min) / range : 0;
+      const light = { r: 255, g: 224, b: 176 };
+      const dark = { r: 204, g: 91, b: 0 };
+      const r = Math.round(light.r + (dark.r - light.r) * normalized);
+      const g = Math.round(light.g + (dark.g - light.g) * normalized);
+      const b = Math.round(light.b + (dark.b - light.b) * normalized);
+      style = { backgroundColor: `rgb(${r}, ${g}, ${b})` };
+    }
+
+    return (
+      <button
+        key={cell.id}
+        type="button"
+        className={`cell ${cell.state}`}
+        data-cell-id={cell.id}
+        aria-label={`Cell ${cell.id}`}
+        style={style}
+      />
+    );
+  }), [grid, weightRange]);
 
   const metricsRows = useMemo(() => TABLE_ROWS.map((row) => {
     const metrics = algorithmStats[row.key];
@@ -450,6 +526,11 @@ function App() {
         <td>
           {typeof metrics.pathLength === "number"
             ? metrics.pathLength
+            : EMPTY_METRIC}
+        </td>
+        <td>
+          {typeof metrics.totalDistance === "number"
+            ? metrics.totalDistance
             : EMPTY_METRIC}
         </td>
       </tr>
@@ -498,6 +579,7 @@ function App() {
                 <th>Algorithm Runtime</th>
                 <th>Visited Cells</th>
                 <th>Path Length</th>
+                <th>Total Distance</th>
               </tr>
             </thead>
             <tbody>{metricsRows}</tbody>
