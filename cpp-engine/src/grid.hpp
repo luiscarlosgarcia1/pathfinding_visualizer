@@ -21,6 +21,7 @@ private:
     int endIdx;
     
     vector<State> cells;
+    vector<int> weights;
     
 
 
@@ -44,4 +45,5 @@ public:
     bool isEnd(int idx);
 
     vector<State>& getCells();
+    vector<int>& getWeights();
 };

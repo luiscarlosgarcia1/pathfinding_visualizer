@@ -9,12 +9,15 @@ grid::grid()
     endIdx = gridSize - gridDims*2 - 3;
 
     cells.reserve(gridSize);
+    weights.reserve(gridSize);
 
     for (int i = 0; i < gridSize; i++)
         cells.push_back(State::Wall);
 
     cells[startIdx] = State::Start;
     cells[endIdx] = State::End;
+
+    weights = vector<int>(gridSize, 0);
 }
 
 
@@ -91,4 +94,9 @@ bool grid::isEnd(int idx)
 vector<State>& grid::getCells() 
 {
     return cells;
+}
+
+vector<int>& grid::getWeights()
+{
+    return weights;
 }

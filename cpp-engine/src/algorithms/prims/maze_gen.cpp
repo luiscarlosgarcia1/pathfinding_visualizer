@@ -1,6 +1,8 @@
 
 #include "maze_gen.hpp"
 #include <cstdlib>
+#include <cstdlib>
+#include <ctime>
 
 struct mazeContex 
 {
@@ -20,6 +22,7 @@ static void findFrontiers(mazeContex &ctx, int cell);
 static bool checkPassage(mazeContex &ctx, int frontier, int passage);
 static bool checkNeighbor(mazeContex &ctx, int cell, int offset);
 static void popFrontier(mazeContex &ctx, int frontierIndx);
+static void setWeight(mazeContex &ctx, int cell);
 
 
 void prims(grid &grid)
@@ -41,6 +44,9 @@ void prims(grid &grid)
         {
             grid.setEmpty(randFrontier);
             grid.setEmpty(possiblePassage);
+    
+            setWeight(context, randFrontier);
+            setWeight(context, possiblePassage);
 
             findFrontiers(context, possiblePassage);
         }
@@ -112,4 +118,14 @@ static void popFrontier(mazeContex &ctx, int frontierIndx)
     swap(ctx.frontiers[frontierIndx], ctx.frontiers[lastFrontierIndx]);
 
     ctx.frontiers.pop_back();
+}
+
+static void setWeight(mazeContex &ctx, int cell)
+{
+    auto &weights = ctx.grid.getWeights();
+
+    int prevWeight = weights[cell - ctx.direction[cell]];
+    int newWeight = prevWeight + (rand() % 2 ? 1 : -1);
+
+    weights[cell] = newWeight;
 }

@@ -27,19 +27,19 @@ static string gridFields(grid& g) {
     vector<vector<int>> V(4);
 
     const auto &cells = g.getCells();
-    for (int i = 0; i < cells.size(); i++)
-        V[stateToInt(cells[i])].push_back(i);
+    for (size_t i = 0; i < cells.size(); i++)
+        V[stateToInt(cells[static_cast<int>(i)])].push_back(i);
 
     ostringstream out;
 
     out << "\"gridDims\":" << g.getGridDims() << ",";
     out << "\"gridSize\":" << g.getGridSize() << ",";
 
-    for (int i = 1; i < V.size(); i++)
+    for (size_t i = 1; i < V.size(); i++)
     {
         out << "\"" << stateToString(cells[V[i][0]]) << "\":[";
 
-        for (int j = 0; j < V[i].size(); j++)
+        for (size_t j = 0; j < V[i].size(); j++)
         {
             out << V[i][j];
             if (j < V[i].size() - 1)
@@ -50,6 +50,18 @@ static string gridFields(grid& g) {
         if (i < V.size() - 1)
             out << ",";
     }
+
+    out << ",";
+    
+    const auto &weights = g.getWeights();
+    out << "\"weights\":[";
+    for (size_t i = 0; i < weights.size(); i++)
+    {
+        out << weights[static_cast<int>(i)];
+        if (i < weights.size() - 1)
+            out << ",";
+    }
+    out << "]";
 
     return out.str();
 }
