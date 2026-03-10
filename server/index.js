@@ -16,10 +16,7 @@ const engineBinaryPath = path.join(rootDir, "cpp-engine", "build", "main");
 const ENGINE_TIMEOUT_MS = 5000;
 const createMazeSeed = () => Math.floor(Math.random() * 0x7fffffff);
 
-const layoutState = {
-  mode: "maze",
-  mazeSeed: createMazeSeed(),
-};
+let mazeSeed = createMazeSeed();
 
 const baseGridCache = {
   key: null,
@@ -153,24 +150,14 @@ const ensureEngineBinary = async (res, label) => {
   }
 };
 
-const getLayoutSnapshot = () => {
-  if (layoutState.mode === "maze" && Number.isInteger(layoutState.mazeSeed)) {
-    return { mode: "maze", mazeSeed: layoutState.mazeSeed };
-  }
+const getLayoutSnapshot = () => ({ mazeSeed });
 
-  return { mode: "empty", mazeSeed: null };
-};
+const getLayoutKey = (layout) => `maze:${layout.mazeSeed}`;
 
-const getLayoutKey = (layout) =>
-  layout.mode === "maze" ? `maze:${layout.mazeSeed}` : "empty";
-
-const getBaseGridArgs = (layout) =>
-  layout.mode === "maze" ? ["maze", String(layout.mazeSeed)] : ["empty"];
+const getBaseGridArgs = (layout) => ["maze", String(layout.mazeSeed)];
 
 const getPathfindingArgs = (algorithm, layout) =>
-  layout.mode === "maze"
-    ? ["pathfind-maze", algorithm, String(layout.mazeSeed)]
-    : ["pathfind-empty", algorithm];
+  ["pathfind-maze", algorithm, String(layout.mazeSeed)];
 
 const extractGridShape = (payload, label) => {
   const gridDims = Number(payload?.gridDims);
@@ -327,8 +314,7 @@ app.post("/api/algorithms/maze", async (_req, res) => {
   if (!(await ensureEngineBinary(res, "Maze"))) return;
 
   try {
-    layoutState.mode = "maze";
-    layoutState.mazeSeed = createMazeSeed();
+    mazeSeed = createMazeSeed();
 
     const result = await fetchBaseGrid(getLayoutSnapshot());
     res.json({ ok: true, result });
@@ -336,21 +322,6 @@ app.post("/api/algorithms/maze", async (_req, res) => {
     res.status(500).json({
       ok: false,
       error: "Failed to run maze generator",
-      details: error instanceof Error ? error.message : "Unknown engine error",
-    });
-  }
-});
-
-app.post("/api/grid/clear", async (_req, res) => {
-  if (!(await ensureEngineBinary(res, "Grid clear"))) return;
-
-  try {
-    const result = await fetchBaseGrid(getLayoutSnapshot());
-    res.json({ ok: true, result });
-  } catch (error) {
-    res.status(500).json({
-      ok: false,
-      error: "Failed to clear grid overlays",
       details: error instanceof Error ? error.message : "Unknown engine error",
     });
   }

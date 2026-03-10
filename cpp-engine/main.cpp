@@ -1,9 +1,9 @@
 
 #include "grid.hpp"
-#include "algorithms/bfs/bfs.hpp"
-#include "algorithms/astar/astar.hpp"
-#include "algorithms/dijkstra/dijkstra.hpp"
-#include "algorithms/prims/maze_gen.hpp"
+#include "algorithms/bfs.hpp"
+#include "algorithms/astar.hpp"
+#include "algorithms/dijkstra.hpp"
+#include "algorithms/prims.hpp"
 #include "serializers/pathfinder_json.hpp"
 #include "serializers/grid_json.hpp"
 #include <chrono>
@@ -12,30 +12,21 @@
 #include <string>
 using namespace std;
 
-static void EmptyGrid(grid &g) {
-    for (int i = 0; i < g.getGridSize(); ++i)
-        g.setEmpty(i);
-
-    g.setStart(g.getStart());
-    g.setEnd(g.getEnd());
-}
-
 static unsigned int getSeed(int argc, char* argv[], int seedArgIdx) {
-    if (argc <= seedArgIdx) return 0U;
-    try { return static_cast<unsigned int>(stoul(argv[seedArgIdx])); }
-    catch (...) { return 0U; }
-}
+    if (argc <= seedArgIdx || argv[seedArgIdx] == nullptr) return 0U;
 
+    char* end = nullptr;
+    unsigned long seed = strtoul(argv[seedArgIdx], &end, 10);
+    if (end == argv[seedArgIdx]) return 0U;
+
+    return static_cast<unsigned int>(seed);
+}
 
 int main(int argc, char* argv[]) {
+    if (argc < 2) return 1;
+
     grid g;
     string mode = argv[1];
-
-    if (mode == "empty") {
-        EmptyGrid(g);
-        cout << gridToJson(g) << endl;
-        return 0;
-    }
 
     if (mode == "maze") {
         srand(getSeed(argc, argv, 2));
@@ -44,43 +35,31 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    if (mode == "pathfind-empty" || mode == "pathfind-maze") {
-        string algorithm = argv[2];
-
-        if (mode == "pathfind-empty") {
-            EmptyGrid(g);
-        } else {
-            srand(getSeed(argc, argv, 3));
-            prims(g);
-        }
-
-        if (algorithm == "bfs") {
-            auto startTime = chrono::steady_clock::now();
-            auto result = bfs(g);
-            auto endTime = chrono::steady_clock::now();
-            result.algorithmRuntimeUs = chrono::duration_cast<chrono::microseconds>(endTime - startTime).count();
-            cout << pathfindingToJson(result) << endl;
-            return 0;
-        }
-
-        if (algorithm == "astar") {
-            auto startTime = chrono::steady_clock::now();
-            auto result = astar(g);
-            auto endTime = chrono::steady_clock::now();
-            result.algorithmRuntimeUs = chrono::duration_cast<chrono::microseconds>(endTime - startTime).count();
-            cout << pathfindingToJson(result) << endl;
-            return 0;
-        }
-
-        if (algorithm == "dijkstra") {
-            auto startTime = chrono::steady_clock::now();
-            auto result = dijkstra(g);
-            auto endTime = chrono::steady_clock::now();
-            result.algorithmRuntimeUs = chrono::duration_cast<chrono::microseconds>(endTime - startTime).count();
-            cout << pathfindingToJson(result) << endl;
-            return 0;
-        }
+    if (mode != "pathfind-maze")
         return 1;
-    }
-    return 1;
+
+    if (argc < 3) return 1;
+    string algorithm = argv[2];
+
+    srand(getSeed(argc, argv, 3));
+    prims(g);
+
+    auto startTime = chrono::steady_clock::now();
+    result run;
+
+    if (algorithm == "bfs")
+        run = bfs(g);
+    else if (algorithm == "astar")
+        run = astar(g);
+    else if (algorithm == "dijkstra")
+        run = dijkstra(g);
+    else
+        return 1;
+
+    auto endTime = chrono::steady_clock::now();
+    run.algorithmRuntimeUs =
+        chrono::duration_cast<chrono::microseconds>(endTime - startTime).count();
+
+    cout << pathfindingToJson(run) << endl;
+    return 0;
 }

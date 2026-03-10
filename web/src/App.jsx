@@ -29,13 +29,6 @@ const TABLE_ROWS = [
   { key: "astar", label: "A*" },
 ];
 
-const engineStateToUiState = (state) => {
-  if (state === "Start") return "start";
-  if (state === "End") return "end";
-  if (state === "Wall") return "wall";
-  return "empty";
-};
-
 const createPlaceholderGrid = (size) =>
   Array.from({ length: size * size }, (_, index) => ({
     id: index,
@@ -115,21 +108,13 @@ const buildGridFromPathfindingResult = (result) => {
   }
 
   const weights = sanitizeWeightArray(result?.weights, gridSize);
-
-  const hasCellsArray = Array.isArray(result?.cells) && result.cells.length === gridSize;
-  const baseGrid = hasCellsArray
-    ? result.cells.map((state, index) => ({
-      id: index,
-      state: engineStateToUiState(state),
-      weight: weights[index] ?? 0,
-    }))
-    : buildGridFromSparseState(
-      gridSize,
-      sanitizeIndexArray(result?.Wall ?? result?.wall, gridSize),
-      sanitizeIndexArray(result?.Start ?? result?.start, gridSize),
-      sanitizeIndexArray(result?.End ?? result?.end, gridSize),
-      weights,
-    );
+  const baseGrid = buildGridFromSparseState(
+    gridSize,
+    sanitizeIndexArray(result?.Wall ?? result?.wall, gridSize),
+    sanitizeIndexArray(result?.Start ?? result?.start, gridSize),
+    sanitizeIndexArray(result?.End ?? result?.end, gridSize),
+    weights,
+  );
 
   const visitOrder = sanitizeIndexArray(result?.visitOrder, baseGrid.length);
   const path = sanitizeIndexArray(result?.path, baseGrid.length);
@@ -161,20 +146,13 @@ const buildGridFromGridResult = (result) => {
   }
 
   const weights = sanitizeWeightArray(result?.weights, gridSize);
-  const hasCellsArray = Array.isArray(result?.cells) && result.cells.length === gridSize;
-  const nextGrid = hasCellsArray
-    ? result.cells.map((state, index) => ({
-      id: index,
-      state: engineStateToUiState(state),
-      weight: weights[index] ?? 0,
-    }))
-    : buildGridFromSparseState(
-      gridSize,
-      sanitizeIndexArray(result?.Wall ?? result?.wall, gridSize),
-      sanitizeIndexArray(result?.Start ?? result?.start, gridSize),
-      sanitizeIndexArray(result?.End ?? result?.end, gridSize),
-      weights,
-    );
+  const nextGrid = buildGridFromSparseState(
+    gridSize,
+    sanitizeIndexArray(result?.Wall ?? result?.wall, gridSize),
+    sanitizeIndexArray(result?.Start ?? result?.start, gridSize),
+    sanitizeIndexArray(result?.End ?? result?.end, gridSize),
+    weights,
+  );
 
   return { dims, grid: nextGrid };
 };
@@ -214,7 +192,7 @@ function App() {
       let nextGrid = cloneGrid(baseGrid);
       const frameDurationMs = 1000 / 60;
       let lastFrameTime = 0;
-      const targetAnimationMs = 5000;
+      const targetAnimationMs = 2500;
       const targetFrames = Math.max(1, Math.round(targetAnimationMs / frameDurationMs));
       const totalNodes = visitOrder.length + path.length;
       const nodesPerFrame = Math.max(1, Math.ceil(totalNodes / targetFrames));
@@ -389,30 +367,12 @@ function App() {
     void runPathfindingAlgorithm("dijkstra", "Dijkstra", "/api/algorithms/dijkstra");
   }, [runPathfindingAlgorithm]);
 
-  const resetGrid = useCallback(async () => {
-    setIsRunning(true);
-    setRunStatus("Clearing");
-
-    try {
-      cancelGridAnimation();
-      const response = await fetch("/api/grid/clear", { method: "POST" });
-      const payload = await response.json();
-
-      if (!response.ok || !payload?.ok || !payload?.result) {
-        throw new Error(payload?.details ?? payload?.error ?? "Clear request failed.");
-      }
-
-      const nextState = buildGridFromGridResult(payload.result);
-      setGridSize(nextState.dims);
-      setGrid(nextState.grid);
-      setEngineBaseGrid(cloneGrid(nextState.grid));
-      setRunStatus("Idle");
-    } catch {
-      setRunStatus("Failed");
-    } finally {
-      setIsRunning(false);
-    }
-  }, [cancelGridAnimation]);
+  const resetGrid = useCallback(() => {
+    if (!engineBaseGrid) return;
+    cancelGridAnimation();
+    setGrid(cloneGrid(engineBaseGrid));
+    setRunStatus("Idle");
+  }, [cancelGridAnimation, engineBaseGrid]);
 
   const generateMaze = useCallback(async () => {
     setIsRunning(true);
@@ -438,22 +398,6 @@ function App() {
       setIsRunning(false);
     }
   }, [cancelGridAnimation]);
-
-  const handleGridClick = useCallback((event) => {
-    const target = event.target;
-    const gridElement = event.currentTarget;
-
-    if (!(target instanceof HTMLElement) || !(gridElement instanceof HTMLElement)) return;
-
-    const cellElement = target.closest("[data-cell-id]");
-    if (!(cellElement instanceof HTMLElement) || !gridElement.contains(cellElement)) return;
-
-    const cellId = Number(cellElement.dataset.cellId);
-    if (!isValidCellIndex(cellId, grid.length)) return;
-
-    // Single delegated listener for all cells.
-    cellElement.blur();
-  }, [grid.length]);
 
   const weightRange = useMemo(() => {
     if (grid.length === 0) return { min: 0, max: 0 };
@@ -501,7 +445,6 @@ function App() {
         key={cell.id}
         type="button"
         className={`cell ${cell.state}`}
-        data-cell-id={cell.id}
         aria-label={`Cell ${cell.id}`}
         style={style}
       />
@@ -565,7 +508,6 @@ function App() {
         <section
           ref={gridRef}
           className="grid"
-          onClick={handleGridClick}
         >
           {gridCells}
         </section>
