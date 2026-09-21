@@ -6,7 +6,6 @@ import { fileURLToPath } from "node:url";
 
 const app = express();
 const PORT = Number.parseInt(process.env.PORT ?? "3001", 10);
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "..");
@@ -14,319 +13,168 @@ const configPath = path.join(rootDir, "configs", "config.json");
 const engineBinaryPath = path.join(rootDir, "cpp-engine", "build", "main");
 
 const ENGINE_TIMEOUT_MS = 5000;
+const MIN_GRID_DIMS = 11;
+const MAX_GRID_DIMS = 317;
+const LAYOUT_HEADER_SIZE = 16;
+const RUN_HEADER_SIZE = 40;
+const ALGORITHMS = new Set(["bfs", "dijkstra", "astar"]);
+const DETAILS = new Set(["full", "metrics"]);
 const createMazeSeed = () => Math.floor(Math.random() * 0x7fffffff);
+const createLayoutId = () => crypto.randomUUID();
 
-let mazeSeed = createMazeSeed();
+let currentLayout = null;
+app.use(express.json({ limit: "1kb" }));
 
-const baseGridCache = {
-  key: null,
-  value: null,
-};
+const respondError = (res, status, error) => res.status(status).json({ ok: false, error });
+const readUInt16 = (buffer, offset) => buffer.readUInt16LE(offset);
+const readUInt32 = (buffer, offset) => buffer.readUInt32LE(offset);
+const validGridShape = (gridDims, gridSize) =>
+  Number.isInteger(gridDims) && gridDims >= MIN_GRID_DIMS && gridDims <= MAX_GRID_DIMS &&
+  Number.isInteger(gridSize) && gridSize === gridDims * gridDims;
 
-app.use(express.json());
-
-const isValidCellIndex = (value, gridSize) =>
-  Number.isInteger(value) && value >= 0 && value < gridSize;
-
-const sanitizeIndexArray = (value, gridSize) => {
-  if (!Array.isArray(value)) return [];
-
-  const out = [];
-  const seen = new Set();
-
-  for (const candidate of value) {
-    const index = Number(candidate);
-    if (!isValidCellIndex(index, gridSize) || seen.has(index)) continue;
-    seen.add(index);
-    out.push(index);
+const validateLayoutEnvelope = (buffer) => {
+  if (buffer.length < LAYOUT_HEADER_SIZE || buffer.subarray(0, 4).toString("ascii") !== "WFL2") {
+    throw new Error("invalid Layout envelope");
   }
-
-  return out;
-};
-
-const sanitizeWeightArray = (value, gridSize) => {
-  const out = Array.from({ length: gridSize }, () => 0);
-  if (!Array.isArray(value)) return out;
-
-  const limit = Math.min(value.length, gridSize);
-  for (let index = 0; index < limit; index += 1) {
-    const weight = Number(value[index]);
-    out[index] = Number.isFinite(weight) ? weight : 0;
+  if (readUInt16(buffer, 4) !== 2 || readUInt16(buffer, 6) !== 1) {
+    throw new Error("unsupported Layout envelope version");
   }
-
-  return out;
-};
-
-const parseEngineOutput = (raw) => {
-  try {
-    return JSON.parse(raw);
-  } catch (_firstError) {
-    const openBraces = (raw.match(/{/g) ?? []).length;
-    const closeBraces = (raw.match(/}/g) ?? []).length;
-    const openBrackets = (raw.match(/\[/g) ?? []).length;
-    const closeBrackets = (raw.match(/]/g) ?? []).length;
-
-    let repaired = raw;
-    if (openBrackets > closeBrackets) {
-      repaired += "]".repeat(openBrackets - closeBrackets);
-    }
-    if (openBraces > closeBraces) {
-      repaired += "}".repeat(openBraces - closeBraces);
-    }
-
-    return JSON.parse(repaired);
+  const gridDims = readUInt32(buffer, 8);
+  const gridSize = readUInt32(buffer, 12);
+  if (!validGridShape(gridDims, gridSize) || buffer.length !== LAYOUT_HEADER_SIZE + gridSize * 2) {
+    throw new Error("invalid Layout envelope shape");
   }
-};
-
-const runEngine = (args) =>
-  new Promise((resolve, reject) => {
-    const child = spawn(engineBinaryPath, args, { cwd: rootDir });
-    let stdout = "";
-    let stderr = "";
-    let settled = false;
-
-    const timeout = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      child.kill("SIGKILL");
-      reject(new Error(`Engine timed out after ${ENGINE_TIMEOUT_MS}ms`));
-    }, ENGINE_TIMEOUT_MS);
-
-    child.stdout.setEncoding("utf8");
-    child.stderr.setEncoding("utf8");
-
-    child.stdout.on("data", (chunk) => {
-      stdout += chunk;
-    });
-
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk;
-    });
-
-    child.on("error", (error) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timeout);
-      reject(error);
-    });
-
-    child.on("close", (code) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timeout);
-
-      if (code !== 0) {
-        const detail = stderr.trim();
-        reject(new Error(`Engine exited with code ${code}${detail ? `: ${detail}` : ""}`));
-        return;
-      }
-
-      const raw = stdout.trim();
-      if (!raw) {
-        reject(new Error("Engine returned empty output"));
-        return;
-      }
-
-      try {
-        resolve(parseEngineOutput(raw));
-      } catch (error) {
-        const detail = error instanceof Error ? error.message : "Unknown parse error";
-        reject(new Error(`Engine returned invalid JSON: ${detail}`));
-      }
-    });
-  });
-
-const ensureEngineBinary = async (res, label) => {
-  try {
-    await fs.access(engineBinaryPath);
-    return true;
-  } catch (_error) {
-    res.status(500).json({
-      ok: false,
-      error: `${label} engine binary not found`,
-      details: `Build the engine first: make (expected binary at ${engineBinaryPath})`,
-    });
-    return false;
-  }
-};
-
-const getLayoutSnapshot = () => ({ mazeSeed });
-
-const getLayoutKey = (layout) => `maze:${layout.mazeSeed}`;
-
-const getBaseGridArgs = (layout) => ["maze", String(layout.mazeSeed)];
-
-const getPathfindingArgs = (algorithm, layout) =>
-  ["pathfind-maze", algorithm, String(layout.mazeSeed)];
-
-const extractGridShape = (payload, label) => {
-  const gridDims = Number(payload?.gridDims);
-  const gridSize = Number(payload?.gridSize);
-  const expectedSize = gridDims * gridDims;
-
-  if (!Number.isInteger(gridDims) || gridDims < 2) {
-    throw new Error(`${label} returned invalid gridDims`);
-  }
-
-  if (!Number.isInteger(gridSize) || gridSize !== expectedSize) {
-    throw new Error(`${label} returned invalid gridSize`);
-  }
-
   return { gridDims, gridSize };
 };
 
-const normalizeGridResult = (rawResult) => {
-  const payload = rawResult?.grid ?? rawResult;
-  const { gridDims, gridSize } = extractGridShape(payload, "Grid serializer");
+const validateRunEnvelope = (buffer, expected) => {
+  if (buffer.length < RUN_HEADER_SIZE || buffer.subarray(0, 4).toString("ascii") !== "WFR2") {
+    throw new Error("invalid Pathfinding run envelope");
+  }
+  if (readUInt16(buffer, 4) !== 2 || readUInt16(buffer, 6) !== 2) {
+    throw new Error("unsupported Pathfinding run envelope version");
+  }
+  const gridDims = readUInt32(buffer, 8);
+  const gridSize = readUInt32(buffer, 12);
+  const detail = buffer[17];
+  const found = buffer[18];
+  const visitCount = readUInt32(buffer, 32);
+  const pathLength = readUInt32(buffer, 36);
+  if (
+    !validGridShape(gridDims, gridSize) || gridDims !== expected.gridDims || gridSize !== expected.gridSize ||
+    ![1, 2, 3].includes(buffer[16]) || ![1, 2].includes(detail) || ![0, 1].includes(found) || buffer[19] !== 0 ||
+    (detail === 2 && (visitCount !== 0 || pathLength !== 0)) ||
+    buffer.length !== RUN_HEADER_SIZE + (visitCount + pathLength) * 4
+  ) throw new Error("invalid Pathfinding run envelope shape");
+};
 
-  return {
-    gridDims,
-    gridSize,
-    Wall: sanitizeIndexArray(payload?.Wall ?? payload?.wall, gridSize),
-    Start: sanitizeIndexArray(payload?.Start ?? payload?.start, gridSize),
-    End: sanitizeIndexArray(payload?.End ?? payload?.end, gridSize),
-    weights: sanitizeWeightArray(payload?.weights, gridSize),
+const runEngine = (args) => new Promise((resolve, reject) => {
+  const child = spawn(engineBinaryPath, args, { cwd: rootDir });
+  const stdout = [];
+  const stderr = [];
+  let settled = false;
+  const finish = (callback) => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(timeout);
+    callback();
   };
+  const timeout = setTimeout(() => {
+    child.kill("SIGKILL");
+    finish(() => reject(new Error("Engine timed out")));
+  }, ENGINE_TIMEOUT_MS);
+  child.stdout.on("data", (chunk) => stdout.push(chunk));
+  child.stderr.on("data", (chunk) => stderr.push(chunk));
+  child.on("error", (error) => finish(() => reject(error)));
+  child.on("close", (code) => finish(() => {
+    if (code !== 0) {
+      const detail = Buffer.concat(stderr).toString().trim();
+      reject(new Error(`Engine exited with code ${code}${detail ? `: ${detail}` : ""}`));
+      return;
+    }
+    const output = Buffer.concat(stdout);
+    if (output.length === 0) reject(new Error("Engine returned empty output"));
+    else resolve(output);
+  }));
+});
+
+const ensureEngineBinary = async (res) => {
+  try { await fs.access(engineBinaryPath); return true; }
+  catch (_error) { respondError(res, 500, "engine_unavailable"); return false; }
 };
 
-const normalizePathfindingResult = (rawResult, baseGrid, algorithm) => {
-  const payload = rawResult?.pathfinder ?? rawResult;
-  const fallbackDims = Number(baseGrid?.gridDims);
-  const fallbackSize = Number(baseGrid?.gridSize);
-
-  const gridDims = Number(payload?.gridDims ?? fallbackDims);
-  const gridSize = Number(payload?.gridSize ?? fallbackSize);
-  const expectedSize = gridDims * gridDims;
-
-  if (!Number.isInteger(gridDims) || gridDims < 2) {
-    throw new Error("Pathfinder serializer returned invalid gridDims");
+const readConfiguredDimensions = async () => {
+  const config = JSON.parse(await fs.readFile(configPath, "utf8"));
+  const dimensions = Number(config.grid_size);
+  if (!Number.isInteger(dimensions) || dimensions < MIN_GRID_DIMS || dimensions > MAX_GRID_DIMS) {
+    throw new Error("invalid configured grid size");
   }
-
-  if (!Number.isInteger(gridSize) || gridSize !== expectedSize) {
-    throw new Error("Pathfinder serializer returned invalid gridSize");
-  }
-
-  const algorithmRuntimeUs = Number(payload?.algorithmRuntimeUs);
-  if (!Number.isFinite(algorithmRuntimeUs) || algorithmRuntimeUs < 0) {
-    throw new Error("Pathfinder serializer returned invalid algorithmRuntimeUs");
-  }
-
-  const totalDistance = Number(payload?.totalDistance);
-  if (!Number.isFinite(totalDistance)) {
-    throw new Error("Pathfinder serializer returned invalid totalDistance");
-  }
-
-  return {
-    gridDims,
-    gridSize,
-    Wall: baseGrid.Wall,
-    Start: baseGrid.Start,
-    End: baseGrid.End,
-    found: Boolean(payload?.found),
-    algorithm,
-    algorithmRuntimeUs,
-    totalDistance,
-    weights: sanitizeWeightArray(payload?.weights ?? baseGrid.weights, gridSize),
-    visitOrder: sanitizeIndexArray(payload?.visitOrder ?? payload?.visited, gridSize),
-    path: sanitizeIndexArray(payload?.path, gridSize),
-  };
+  return dimensions;
 };
 
-const fetchBaseGrid = async (layout) => {
-  const key = getLayoutKey(layout);
-
-  if (baseGridCache.key === key && baseGridCache.value) {
-    return baseGridCache.value;
-  }
-
-  const raw = await runEngine(getBaseGridArgs(layout));
-  const normalized = normalizeGridResult(raw);
-
-  baseGridCache.key = key;
-  baseGridCache.value = normalized;
-
-  return normalized;
+const buildLayout = async (gridDims) => {
+  const mazeSeed = createMazeSeed();
+  const binary = await runEngine(["layout", String(gridDims), String(mazeSeed)]);
+  const shape = validateLayoutEnvelope(binary);
+  return { id: createLayoutId(), mazeSeed, binary, ...shape };
 };
 
-const handlePathfinding = (algorithm, label) => async (_req, res) => {
-  if (!(await ensureEngineBinary(res, label))) return;
+const sendLayout = (res, layout) => {
+  res.set({ "Content-Type": "application/octet-stream", "Content-Length": String(layout.binary.length), "X-Layout-Id": layout.id });
+  res.send(layout.binary);
+};
 
-  try {
-    const layout = getLayoutSnapshot();
-    const [baseGrid, rawPath] = await Promise.all([
-      fetchBaseGrid(layout),
-      runEngine(getPathfindingArgs(algorithm, layout)),
-    ]);
-
-    const result = normalizePathfindingResult(rawPath, baseGrid, algorithm);
-    res.json({ ok: true, result });
-  } catch (error) {
-    res.status(500).json({
-      ok: false,
-      error: `Failed to run ${label}`,
-      details: error instanceof Error ? error.message : "Unknown engine error",
-    });
-  }
+const getActiveLayout = async () => {
+  if (currentLayout) return currentLayout;
+  currentLayout = await buildLayout(await readConfiguredDimensions());
+  return currentLayout;
 };
 
 app.get("/api/health", (_req, res) => {
-  res.json({
-    ok: true,
-    service: "pathfinding-server",
-    timestamp: new Date().toISOString(),
-  });
+  res.json({ ok: true, service: "pathfinding-server", timestamp: new Date().toISOString() });
 });
 
 app.get("/api/config", async (_req, res) => {
-  try {
-    const configRaw = await fs.readFile(configPath, "utf8");
-    const config = JSON.parse(configRaw);
-    res.json({ ok: true, config });
-  } catch (error) {
-    res.status(500).json({
-      ok: false,
-      error: "Failed to read config.json",
-      details: error instanceof Error ? error.message : "Unknown error",
-    });
+  try { res.json({ ok: true, config: JSON.parse(await fs.readFile(configPath, "utf8")) }); }
+  catch (_error) { respondError(res, 500, "config_unavailable"); }
+});
+
+app.get("/api/layout", async (_req, res) => {
+  if (!(await ensureEngineBinary(res))) return;
+  try { sendLayout(res, await getActiveLayout()); }
+  catch (_error) { respondError(res, 502, "layout_generation_failed"); }
+});
+
+app.post("/api/layout", async (req, res) => {
+  if (!(await ensureEngineBinary(res))) return;
+  const requestedDims = req.body?.gridDims;
+  if (requestedDims !== undefined && (!Number.isInteger(requestedDims) || requestedDims < MIN_GRID_DIMS || requestedDims > MAX_GRID_DIMS)) {
+    respondError(res, 400, "invalid_grid_dims");
+    return;
   }
-});
-
-app.get("/api/grid", async (_req, res) => {
-  if (!(await ensureEngineBinary(res, "Grid"))) return;
-
   try {
-    const result = await fetchBaseGrid(getLayoutSnapshot());
-    res.json({ ok: true, result });
-  } catch (error) {
-    res.status(500).json({
-      ok: false,
-      error: "Failed to build base grid",
-      details: error instanceof Error ? error.message : "Unknown engine error",
-    });
-  }
+    currentLayout = await buildLayout(requestedDims ?? (await readConfiguredDimensions()));
+    sendLayout(res, currentLayout);
+  } catch (_error) { respondError(res, 502, "layout_generation_failed"); }
 });
 
-app.post("/api/algorithms/bfs", handlePathfinding("bfs", "BFS"));
-app.post("/api/algorithms/dijkstra", handlePathfinding("dijkstra", "Dijkstra"));
-app.post("/api/algorithms/astar", handlePathfinding("astar", "A*"));
-
-app.post("/api/algorithms/maze", async (_req, res) => {
-  if (!(await ensureEngineBinary(res, "Maze"))) return;
-
+app.post("/api/runs/:algorithm", async (req, res) => {
+  if (!(await ensureEngineBinary(res))) return;
+  const { algorithm } = req.params;
+  const { layoutId, detail } = req.body ?? {};
+  if (!ALGORITHMS.has(algorithm)) return respondError(res, 404, "unknown_algorithm");
+  if (typeof layoutId !== "string" || layoutId.length === 0) return respondError(res, 400, "invalid_layout_id");
+  const requestedLayout = currentLayout;
+  if (layoutId !== requestedLayout?.id) return respondError(res, 409, "stale_layout_id");
+  if (!DETAILS.has(detail)) return respondError(res, 400, "invalid_run_detail");
   try {
-    mazeSeed = createMazeSeed();
-
-    const result = await fetchBaseGrid(getLayoutSnapshot());
-    res.json({ ok: true, result });
-  } catch (error) {
-    res.status(500).json({
-      ok: false,
-      error: "Failed to run maze generator",
-      details: error instanceof Error ? error.message : "Unknown engine error",
-    });
-  }
+    const binary = await runEngine(["run", String(requestedLayout.gridDims), String(requestedLayout.mazeSeed), algorithm, detail]);
+    validateRunEnvelope(binary, requestedLayout);
+    res.set({ "Content-Type": "application/octet-stream", "Content-Length": String(binary.length), "X-Layout-Id": requestedLayout.id });
+    res.send(binary);
+  } catch (_error) { respondError(res, 502, "pathfinding_run_failed"); }
 });
 
-app.listen(PORT, () => {
-  console.log(`API server running on http://localhost:${PORT}`);
-});
+if (process.env.NODE_ENV !== "test") app.listen(PORT, () => console.log(`API server running on http://localhost:${PORT}`));
+
+export { app, validateLayoutEnvelope, validateRunEnvelope };
