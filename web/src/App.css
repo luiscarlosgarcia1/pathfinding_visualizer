@@ -113,9 +113,12 @@
   justify-self: start;
 }
 
-.canvas-presentation {
+.canvas-area {
   width: var(--grid-size);
   max-width: 100%;
+}
+
+.canvas-presentation {
   aspect-ratio: 1;
   border-radius: 12px;
   overflow: hidden;
