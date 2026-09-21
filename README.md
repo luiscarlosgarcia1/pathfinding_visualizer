@@ -79,10 +79,6 @@ npm run dev
 - **CLI-style engine contract**: engine prints JSON to stdout, keeping integration simple between C++ and JS layers.
 - **Config-first grid sizing**: grid dimensions come from `configs/config.json`, with fallback logic in `grid_size_reader.cpp`.
 
-## Known Bugs
-
-- Prim's maze generation is highly sensitive to `grid_size`. If `grid_size` is not in the form `(odd * 10) + 1`, edge walls may fail to generate correctly and start/end nodes can become fully surrounded by walls.
-
 ## Troubleshooting
 
 - `engine binary not found` from API:

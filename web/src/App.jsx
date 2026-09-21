@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CELL_ROLE, decodeLayout, fetchLayout, fetchRun } from "./wayfinder-client.js";
+import { CELL_ROLE, fetchLayout, fetchRun, generateLayout, GRID_DIMENSIONS } from "./wayfinder-client.js";
 import "./App.css";
 
-const DEFAULT_GRID_SIZE = 20;
+const DEFAULT_GRID_SIZE = GRID_DIMENSIONS.default;
 const EMPTY_METRIC = "—";
 const ALGORITHMS = [{ key: "bfs", label: "BFS", code: 1 }, { key: "dijkstra", label: "Dijkstra", code: 2 }, { key: "astar", label: "A*", code: 3 }];
 const INITIAL_ALGORITHM_STATS = Object.fromEntries(ALGORITHMS.map(({ key }) => [key, { runtimeMs: null, visitedCells: null, pathLength: null, totalDistance: null }]));
@@ -10,7 +10,8 @@ const roleState = (role) => ["empty", "wall", "start", "end"][role] ?? "empty";
 
 function App() {
   const [layout, setLayout] = useState(null);
-  const [run, setRun] = useState(null);
+  const [selectedGridDims, setSelectedGridDims] = useState(DEFAULT_GRID_SIZE);
+  const [hasRun, setHasRun] = useState(false);
   const [serverStatus, setServerStatus] = useState("Checking...");
   const [runStatus, setRunStatus] = useState("Idle");
   const [isRunning, setIsRunning] = useState(false);
@@ -27,14 +28,10 @@ function App() {
     animationRef.current.resolve = null;
   }, []);
   const applyLayout = useCallback((nextLayout) => {
-    cancelGridAnimation(); setLayout(nextLayout); setRun(null); setOverlay({ visited: new Set(), path: new Set() });
+    cancelGridAnimation(); setLayout(nextLayout); setHasRun(false); setAlgorithmStats(INITIAL_ALGORITHM_STATS); setOverlay({ visited: new Set(), path: new Set() });
   }, [cancelGridAnimation]);
-  const loadLayout = useCallback(async (method = "GET") => {
-    if (method === "GET") { const nextLayout = await fetchLayout(); applyLayout(nextLayout); return nextLayout; }
-    const response = await fetch("/api/layout", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
-    if (!response.ok) throw new Error("Layout request failed.");
-    const nextLayout = decodeLayout(await response.arrayBuffer(), response.headers.get("X-Layout-Id"));
-    applyLayout(nextLayout); return nextLayout;
+  const loadLayout = useCallback(async () => {
+    const nextLayout = await fetchLayout(); applyLayout(nextLayout); return nextLayout;
   }, [applyLayout]);
   useEffect(() => {
     const initialize = async () => {
@@ -68,9 +65,10 @@ function App() {
     try {
       const result = await fetchRun(layout, code);
       if (result.stale) { applyLayout(result.layout); setRunStatus("Layout changed; refreshed current maze."); return; }
-      setRun(result.run); setRunStatus(`Animating ${label}`); await animateRun(result.run);
+      setHasRun(true); setRunStatus(`Animating ${label}`); await animateRun(result.run);
       setAlgorithmStats((previous) => ({ ...previous, [key]: { runtimeMs: result.run.runtimeUs / 1000, visitedCells: result.run.visitOrder.length, pathLength: result.run.path.length, totalDistance: result.run.totalDistance } }));
-      setRunStatus(result.run.found ? `${label} complete, path found` : `${label} complete, path not found`);
+      const outcome = result.run.found ? "path found" : "path not found";
+      setRunStatus(`${label}: ${outcome}; ${result.run.visitOrder.length} visited; path length ${result.run.path.length}; distance ${result.run.totalDistance}; runtime ${(result.run.runtimeUs / 1000).toFixed(2)} ms`);
     } catch { setRunStatus("Failed"); }
     finally { setIsRunning(false); setActiveAlgorithm(null); }
   }, [animateRun, applyLayout, layout]);
@@ -87,16 +85,16 @@ function App() {
       const [low, high] = cell.state === "empty" ? [[255, 255, 255], [48, 88, 150]] : [[255, 224, 176], [204, 91, 0]];
       style = { backgroundColor: `rgb(${Math.round(low[0] + (high[0] - low[0]) * normalized)}, ${Math.round(low[1] + (high[1] - low[1]) * normalized)}, ${Math.round(low[2] + (high[2] - low[2]) * normalized)})` };
     }
-    return <button key={cell.id} type="button" className={`cell ${cell.state}`} aria-label={`Cell ${cell.id}`} style={style} />;
+    return <div key={cell.id} className={`cell ${cell.state}`} role="gridcell" aria-label={`Cell ${cell.id}: ${cell.state}${cell.state === "empty" || cell.state === "visited" ? `, weight ${cell.weight}` : ""}`} style={style} />;
   }), [cells, weightRange]);
   return <main className="page">
     <header className="topbar"><h1>Pathfinding Visualizer</h1><p className="status">{serverStatus}</p></header>
-    <section className="panel"><p>Grid: {layout?.gridDims ?? DEFAULT_GRID_SIZE} x {layout?.gridDims ?? DEFAULT_GRID_SIZE}</p><div className="panel-actions">
+    <section className="panel" aria-label="Grid controls"><p>Current Grid: {layout?.gridDims ?? DEFAULT_GRID_SIZE} × {layout?.gridDims ?? DEFAULT_GRID_SIZE}</p><label className="dimension-control" htmlFor="grid-dimensions">Grid dimension<input id="grid-dimensions" type="number" min={GRID_DIMENSIONS.min} max={GRID_DIMENSIONS.max} value={selectedGridDims} onChange={(event) => setSelectedGridDims(Number(event.target.value))} disabled={isRunning} /></label><div className="panel-actions">
       {ALGORITHMS.map((algorithm) => <button key={algorithm.key} onClick={() => void runAlgorithm(algorithm)} disabled={isRunning || !layout}>{isRunning && activeAlgorithm === algorithm.key ? "Running..." : `Run ${algorithm.label}`}</button>)}
-      <button onClick={() => { cancelGridAnimation(); setRun(null); setOverlay({ visited: new Set(), path: new Set() }); setRunStatus("Idle"); }} disabled={isRunning || !run}>Clear Grid</button>
-      <button onClick={() => void (async () => { setIsRunning(true); setRunStatus("Generating maze"); try { await loadLayout("POST"); setRunStatus("Maze generated"); } catch { setRunStatus("Failed"); } finally { setIsRunning(false); } })()} disabled={isRunning}>Generate Maze</button>
+      <button onClick={() => { cancelGridAnimation(); setHasRun(false); setOverlay({ visited: new Set(), path: new Set() }); setRunStatus("Idle"); }} disabled={isRunning || !hasRun}>Clear run overlay</button>
+      <button onClick={() => void (async () => { setIsRunning(true); setRunStatus(`Generating ${selectedGridDims} × ${selectedGridDims} maze`); try { const nextLayout = await generateLayout(selectedGridDims); applyLayout(nextLayout); setRunStatus(`Generated ${nextLayout.gridDims} × ${nextLayout.gridDims} maze`); } catch (error) { setRunStatus(error.message === "Grid dimension must be between 11 and 317." ? error.message : "Maze generation failed"); } finally { setIsRunning(false); } })()} disabled={isRunning || !Number.isInteger(selectedGridDims) || selectedGridDims < GRID_DIMENSIONS.min || selectedGridDims > GRID_DIMENSIONS.max}>Generate Maze</button>
     </div></section>
-    <section className="content-layout"><section ref={gridRef} className="grid">{gridCells}</section><aside className="metrics-panel"><h2>Algorithm Performance</h2><table className="metrics-table"><thead><tr><th>Algorithm</th><th>Algorithm Runtime</th><th>Visited Cells</th><th>Path Length</th><th>Total Distance</th></tr></thead><tbody>{ALGORITHMS.map(({ key, label }) => { const metrics = algorithmStats[key]; return <tr key={key}><td>{label}</td><td>{typeof metrics.runtimeMs === "number" ? `${metrics.runtimeMs.toFixed(2)} ms` : EMPTY_METRIC}</td><td>{metrics.visitedCells ?? EMPTY_METRIC}</td><td>{metrics.pathLength ?? EMPTY_METRIC}</td><td>{metrics.totalDistance ?? EMPTY_METRIC}</td></tr>; })}</tbody></table><p className="run-status">Run Status: {runStatus}</p></aside></section>
+    <section className="content-layout"><section ref={gridRef} className="grid" role="grid" aria-label={`${layout?.gridDims ?? DEFAULT_GRID_SIZE} by ${layout?.gridDims ?? DEFAULT_GRID_SIZE} pathfinding Grid`}>{gridCells}</section><aside className="metrics-panel"><h2>Algorithm Performance</h2><table className="metrics-table"><caption className="visually-hidden">Comparable metrics for each pathfinding algorithm</caption><thead><tr><th>Algorithm</th><th>Algorithm Runtime</th><th>Visited Cells</th><th>Path Length</th><th>Total Distance</th></tr></thead><tbody>{ALGORITHMS.map(({ key, label }) => { const metrics = algorithmStats[key]; return <tr key={key}><td>{label}</td><td>{typeof metrics.runtimeMs === "number" ? `${metrics.runtimeMs.toFixed(2)} ms` : EMPTY_METRIC}</td><td>{metrics.visitedCells ?? EMPTY_METRIC}</td><td>{metrics.pathLength ?? EMPTY_METRIC}</td><td>{metrics.totalDistance ?? EMPTY_METRIC}</td></tr>; })}</tbody></table><p className="run-status" role="status" aria-live="polite">Run Status: {runStatus}</p></aside></section>
   </main>;
 }
 export default App;

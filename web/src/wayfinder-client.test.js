@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { CELL_ROLE, decodeLayout, decodeRun, fetchRun } from "./wayfinder-client.js";
+import { CELL_ROLE, decodeLayout, decodeRun, fetchRun, generateLayout, GRID_DIMENSIONS } from "./wayfinder-client.js";
 
 const layoutEnvelope = () => {
   const buffer = new ArrayBuffer(16 + 121 * 2); const view = new DataView(buffer);
@@ -31,4 +31,19 @@ test("refreshes the Layout instead of returning a stale run", async () => {
   const request = async (url) => { requests.push(url); return url === "/api/layout" ? response(200, layoutEnvelope(), { "X-Layout-Id": "layout-b" }) : response(409, new ArrayBuffer(0)); };
   const result = await fetchRun(decodeLayout(layoutEnvelope(), "layout-a"), "bfs", request);
   assert.equal(result.stale, true); assert.equal(result.layout.id, "layout-b"); assert.deepEqual(requests, ["/api/runs/bfs", "/api/layout"]);
+});
+
+test("requests a generated Layout at the selected Grid dimension", async () => {
+  let request;
+  const response = { ok: true, headers: new Headers({ "X-Layout-Id": "layout-c" }), arrayBuffer: async () => layoutEnvelope() };
+  const layout = await generateLayout(21, async (...args) => { request = args; return response; });
+  assert.equal(layout.gridDims, 11);
+  assert.equal(request[0], "/api/layout");
+  assert.equal(request[1].method, "POST");
+  assert.deepEqual(JSON.parse(request[1].body), { gridDims: 21 });
+});
+
+test("uses the documented Grid dimension range when generating Layouts", async () => {
+  await assert.rejects(generateLayout(GRID_DIMENSIONS.min - 1), /between 11 and 317/);
+  await assert.rejects(generateLayout(GRID_DIMENSIONS.max + 1), /between 11 and 317/);
 });

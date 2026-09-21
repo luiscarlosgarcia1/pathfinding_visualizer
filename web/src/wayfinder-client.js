@@ -1,13 +1,12 @@
 const LAYOUT_HEADER_SIZE = 16;
 const RUN_HEADER_SIZE = 40;
-const MIN_GRID_DIMS = 11;
-const MAX_GRID_DIMS = 317;
+export const GRID_DIMENSIONS = Object.freeze({ default: 21, min: 11, max: 317 });
 
 export const CELL_ROLE = Object.freeze({ EMPTY: 0, WALL: 1, START: 2, END: 3 });
 export const RUN_DETAIL = Object.freeze({ FULL: 1, METRICS: 2 });
 
 const validGridShape = (gridDims, gridSize) =>
-  Number.isInteger(gridDims) && gridDims >= MIN_GRID_DIMS && gridDims <= MAX_GRID_DIMS &&
+  Number.isInteger(gridDims) && gridDims >= GRID_DIMENSIONS.min && gridDims <= GRID_DIMENSIONS.max &&
   Number.isInteger(gridSize) && gridSize === gridDims * gridDims;
 
 const requireEnvelope = (buffer) => {
@@ -94,6 +93,19 @@ const parseError = async (response) => {
 
 export const fetchLayout = async (request = fetch) => {
   const response = await request("/api/layout");
+  if (!response.ok) throw new Error((await parseError(response)) ?? "Layout request failed.");
+  return decodeLayout(await response.arrayBuffer(), response.headers.get("X-Layout-Id"));
+};
+
+export const generateLayout = async (gridDims, request = fetch) => {
+  if (!Number.isInteger(gridDims) || gridDims < GRID_DIMENSIONS.min || gridDims > GRID_DIMENSIONS.max) {
+    throw new Error("Grid dimension must be between 11 and 317.");
+  }
+  const response = await request("/api/layout", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ gridDims }),
+  });
   if (!response.ok) throw new Error((await parseError(response)) ?? "Layout request failed.");
   return decodeLayout(await response.arrayBuffer(), response.headers.get("X-Layout-Id"));
 };
