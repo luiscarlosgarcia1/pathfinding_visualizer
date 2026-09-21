@@ -18,6 +18,7 @@ const MAX_GRID_DIMS = 317;
 const LAYOUT_HEADER_SIZE = 16;
 const RUN_HEADER_SIZE = 40;
 const ALGORITHMS = new Set(["bfs", "dijkstra", "astar"]);
+const ALGORITHM_CODES = new Map([["bfs", 1], ["dijkstra", 2], ["astar", 3]]);
 const DETAILS = new Set(["full", "metrics"]);
 const createMazeSeed = () => Math.floor(Math.random() * 0x7fffffff);
 const createLayoutId = () => crypto.randomUUID();
@@ -47,7 +48,7 @@ const validateLayoutEnvelope = (buffer) => {
   return { gridDims, gridSize };
 };
 
-const validateRunEnvelope = (buffer, expected) => {
+const validateRunEnvelope = (buffer, expected, expectedAlgorithm) => {
   if (buffer.length < RUN_HEADER_SIZE || buffer.subarray(0, 4).toString("ascii") !== "WFR2") {
     throw new Error("invalid Pathfinding run envelope");
   }
@@ -62,10 +63,15 @@ const validateRunEnvelope = (buffer, expected) => {
   const pathLength = readUInt32(buffer, 36);
   if (
     !validGridShape(gridDims, gridSize) || gridDims !== expected.gridDims || gridSize !== expected.gridSize ||
-    ![1, 2, 3].includes(buffer[16]) || ![1, 2].includes(detail) || ![0, 1].includes(found) || buffer[19] !== 0 ||
+    buffer[16] !== ALGORITHM_CODES.get(expectedAlgorithm) || ![1, 2].includes(detail) || ![0, 1].includes(found) || buffer[19] !== 0 ||
     (detail === 2 && (visitCount !== 0 || pathLength !== 0)) ||
+    (detail === 1 && ((found === 0 && pathLength !== 0) || (found === 1 && pathLength === 0))) ||
     buffer.length !== RUN_HEADER_SIZE + (visitCount + pathLength) * 4
   ) throw new Error("invalid Pathfinding run envelope shape");
+
+  for (let offset = RUN_HEADER_SIZE; offset < buffer.length; offset += 4) {
+    if (readUInt32(buffer, offset) >= gridSize) throw new Error("invalid Pathfinding run cell index");
+  }
 };
 
 const runEngine = (args) => new Promise((resolve, reject) => {
@@ -169,7 +175,7 @@ app.post("/api/runs/:algorithm", async (req, res) => {
   if (!DETAILS.has(detail)) return respondError(res, 400, "invalid_run_detail");
   try {
     const binary = await runEngine(["run", String(requestedLayout.gridDims), String(requestedLayout.mazeSeed), algorithm, detail]);
-    validateRunEnvelope(binary, requestedLayout);
+    validateRunEnvelope(binary, requestedLayout, algorithm);
     res.set({ "Content-Type": "application/octet-stream", "Content-Length": String(binary.length), "X-Layout-Id": requestedLayout.id });
     res.send(binary);
   } catch (_error) { respondError(res, 502, "pathfinding_run_failed"); }

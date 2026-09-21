@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node index.js"
+    "dev": "node index.js",
+    "test": "NODE_ENV=test node --test"
   },
   "dependencies": {
     "express": "^4.19.2"
