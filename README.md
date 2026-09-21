@@ -52,7 +52,7 @@ npm run dev
 - BFS, Dijkstra, and A* pathfinding in the C++ engine.
 - Weighted path cost support for Dijkstra and A* (`stepCost = max(1, cellWeight)`).
 - Path total distance metric emitted by all algorithms.
-- Prim's maze generation with additional carved connectors so mazes include loops/multiple valid routes.
+- Wilson's perfect-maze generation, with a solid outer wall and generated routes connecting the interior Start and End cells.
 - Per-cell weight generation during maze carving.
 - Config-driven grid dimensions (`grid_size` in `configs/config.json`).
 - Version-2 binary `Layout` and `Pathfinding run` envelopes. The server is the canonical owner of the Current maze layout, so all algorithm runs compare the same Base grid.

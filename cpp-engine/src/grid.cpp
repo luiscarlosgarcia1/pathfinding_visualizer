@@ -6,7 +6,8 @@ grid::grid(int dimensions)
     gridDims = dimensions;
     gridSize = gridDims * gridDims;
     startIdx = gridDims + 1;
-    endIdx = gridSize - gridDims - 2;
+    const int terminalCoordinate = gridDims % 2 == 0 ? gridDims - 3 : gridDims - 2;
+    endIdx = terminalCoordinate * gridDims + terminalCoordinate;
 
     cells.reserve(gridSize);
     weights.reserve(gridSize);

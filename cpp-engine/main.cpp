@@ -2,7 +2,7 @@
 #include "algorithms/astar.hpp"
 #include "algorithms/bfs.hpp"
 #include "algorithms/dijkstra.hpp"
-#include "algorithms/prims.hpp"
+#include "algorithms/wilsons.hpp"
 #include "serializers/v2_binary.hpp"
 #include <chrono>
 #include <cstdlib>
@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
     if (argc < 4) return 2;
     int dimensions = 0; unsigned int seed = 0;
     if (!parseDimensions(argv[2], dimensions) || !parseUnsigned(argv[3], seed)) return 2;
-    grid layout(dimensions); std::srand(seed); prims(layout);
+    grid layout(dimensions); std::srand(seed); wilsons(layout);
     try {
         const std::string command = argv[1];
         if (command == "layout" && argc == 4) { v2::writeLayout(std::cout, layout); return std::cout ? 0 : 1; }
