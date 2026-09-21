@@ -25,26 +25,26 @@ private:
 
 
 public:
-    grid();
+    explicit grid(int dimensions);
     ~grid() = default;
 
-    int getGridDims();
-    int getGridSize();
-    int getStart();
-    int getEnd();
+    int getGridDims() const;
+    int getGridSize() const;
+    int getStart() const;
+    int getEnd() const;
 
     void setEmpty(int idx);
     void setWall(int idx);
     void setStart(int idx);
     void setEnd(int idx);
 
-    bool isEmpty(int idx);
-    bool isWall(int idx);
-    bool isStart(int idx);
-    bool isEnd(int idx);
+    bool isEmpty(int idx) const;
+    bool isWall(int idx) const;
+    bool isStart(int idx) const;
+    bool isEnd(int idx) const;
 
-    vector<State>& getCells();
-    vector<int>& getWeights();
+    const vector<State>& getCells() const;
+    const vector<int>& getWeights() const;
 
     vector<int> weights;
 };

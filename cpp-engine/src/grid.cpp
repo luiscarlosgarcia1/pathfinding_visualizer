@@ -1,12 +1,12 @@
 
 #include "grid.hpp"
 
-grid::grid()
+grid::grid(int dimensions)
 {
-    gridDims = config::read_grid_size("configs/config.json");
+    gridDims = dimensions;
     gridSize = gridDims * gridDims;
-    startIdx = gridDims*2 + 2;
-    endIdx = gridSize - gridDims*2 - 3;
+    startIdx = gridDims + 1;
+    endIdx = gridSize - gridDims - 2;
 
     cells.reserve(gridSize);
     weights.reserve(gridSize);
@@ -17,26 +17,26 @@ grid::grid()
     cells[startIdx] = State::Start;
     cells[endIdx] = State::End;
 
-    weights = vector<int>(gridSize, 0);
+    weights = vector<int>(gridSize, 1);
 }
 
 
-int grid::getGridDims() 
+int grid::getGridDims() const
 { 
     return gridDims; 
 }
 
-int grid::getGridSize() 
+int grid::getGridSize() const
 {
     return gridSize;
 }
 
-int grid::getStart()
+int grid::getStart() const
 {
     return startIdx;
 }
 
-int grid::getEnd()
+int grid::getEnd() const
 {
     return endIdx;
 }
@@ -63,40 +63,40 @@ void grid::setEnd(int idx)
 }
 
 
-bool grid::isEmpty(int idx)
+bool grid::isEmpty(int idx) const
 {
     if (cells[idx] == State::Empty)
         return true;
     return false;
 }
 
-bool grid::isWall(int idx)
+bool grid::isWall(int idx) const
 {
     if (cells[idx] == State::Wall)
         return true;
     return false;
 }
 
-bool grid::isStart(int idx)
+bool grid::isStart(int idx) const
 {
     if (idx == startIdx)
         return true;
     return false;
 }
 
-bool grid::isEnd(int idx)
+bool grid::isEnd(int idx) const
 {
     if (idx == endIdx)
         return true;
     return false;
 }
 
-vector<State>& grid::getCells() 
+const vector<State>& grid::getCells() const
 {
     return cells;
 }
 
-vector<int>& grid::getWeights()
+const vector<int>& grid::getWeights() const
 {
     return weights;
 }

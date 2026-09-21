@@ -8,20 +8,21 @@ result bfs(grid &grid)
 {
     bfsHelper h(&grid);
 
-    int cell;
+    int cell = -1;
     while (!h.neighbors.empty())
     {
         cell = h.neighbors.front();
         h.neighbors.pop();
 
-        if(grid.isEnd(cell))
+        if(grid.isEnd(cell)) {
+            h.createPath(cell);
             break;
+        }
 
         if (!grid.isStart(cell))
             h.visit(cell);
         
         h.findNeighbors(cell);
     }
-    h.createPath(cell);
     return h.getResult();
 }

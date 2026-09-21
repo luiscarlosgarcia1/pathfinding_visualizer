@@ -33,4 +33,20 @@ void prims(grid &grid)
         h.popFrontier(randIndx);
     }
     h.addRandomOpenings();
+
+    // Prim's frontier growth does not promise to touch the reserved endpoints.
+    // Carve a deterministic L-shaped corridor so every generated Layout is runnable.
+    int current = grid.getStart();
+    const int end = grid.getEnd();
+    while (current % grid.getGridDims() != end % grid.getGridDims()) {
+        current += (current % grid.getGridDims() < end % grid.getGridDims()) ? 1 : -1;
+        if (!grid.isEnd(current)) grid.setEmpty(current);
+        grid.weights[current] = 1;
+    }
+    while (current / grid.getGridDims() != end / grid.getGridDims()) {
+        current += (current / grid.getGridDims() < end / grid.getGridDims())
+            ? grid.getGridDims() : -grid.getGridDims();
+        if (!grid.isEnd(current)) grid.setEmpty(current);
+        grid.weights[current] = 1;
+    }
 }

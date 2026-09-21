@@ -57,21 +57,17 @@ public:
 
     void createPath(int endIndx)
     {
+        if (endIndx < 0 || parents[endIndx] == -1)
+            return;
         res.found = true;
 
         int child = endIndx;
-        while (!g->isStart(child))
-        {
-            if (parents[child] == -1)
-                break;
-
+        res.path.push_front(child);
+        while (!g->isStart(child)) {
             int stepCost = g->weights[child];
             res.totalDist += (stepCost < 1) ? 1 : stepCost;
-
-            if (!g->isEnd(child))
-                res.path.push_front(child);
-
             child = parents[child];
+            res.path.push_front(child);
         }
     }
 };

@@ -1,65 +1,59 @@
 
-#include "grid.hpp"
-#include "algorithms/bfs.hpp"
 #include "algorithms/astar.hpp"
+#include "algorithms/bfs.hpp"
 #include "algorithms/dijkstra.hpp"
 #include "algorithms/prims.hpp"
-#include "serializers/pathfinder_json.hpp"
-#include "serializers/grid_json.hpp"
+#include "serializers/v2_binary.hpp"
 #include <chrono>
 #include <cstdlib>
 #include <iostream>
 #include <string>
-using namespace std;
 
-static unsigned int getSeed(int argc, char* argv[], int seedArgIdx) {
-    if (argc <= seedArgIdx || argv[seedArgIdx] == nullptr) return 0U;
-
-    char* end = nullptr;
-    unsigned long seed = strtoul(argv[seedArgIdx], &end, 10);
-    if (end == argv[seedArgIdx]) return 0U;
-
-    return static_cast<unsigned int>(seed);
+namespace {
+bool parseUnsigned(const char* text, unsigned int& value) {
+    if (text == nullptr || *text == '\0') return false;
+    char* end = nullptr; const unsigned long parsed = std::strtoul(text, &end, 10);
+    if (*end != '\0' || parsed > UINT_MAX) return false;
+    value = static_cast<unsigned int>(parsed); return true;
 }
+bool parseDimensions(const char* text, int& dimensions) {
+    unsigned int parsed = 0;
+    if (!parseUnsigned(text, parsed) || parsed < 11 || parsed > 317) return false;
+    dimensions = static_cast<int>(parsed); return true;
+}
+bool parseAlgorithm(const std::string& text, v2::Algorithm& algorithm) {
+    if (text == "bfs") { algorithm = v2::Algorithm::Bfs; return true; }
+    if (text == "dijkstra") { algorithm = v2::Algorithm::Dijkstra; return true; }
+    if (text == "astar") { algorithm = v2::Algorithm::Astar; return true; }
+    return false;
+}
+bool parseDetail(const std::string& text, std::uint8_t& detail) {
+    if (text == "full") { detail = v2::kFullRun; return true; }
+    if (text == "metrics") { detail = v2::kMetricsRun; return true; }
+    return false;
+}
+result execute(grid& layout, v2::Algorithm algorithm) {
+    const auto started = std::chrono::steady_clock::now(); result run;
+    if (algorithm == v2::Algorithm::Bfs) run = bfs(layout);
+    else if (algorithm == v2::Algorithm::Dijkstra) run = dijkstra(layout);
+    else run = astar(layout);
+    run.algorithmRuntimeUs = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - started).count();
+    return run;
+}
+}  // namespace
 
 int main(int argc, char* argv[]) {
-    if (argc < 2) return 1;
-
-    grid g;
-    string mode = argv[1];
-
-    if (mode == "maze") {
-        srand(getSeed(argc, argv, 2));
-        prims(g);
-        cout << gridToJson(g) << endl;
-        return 0;
-    }
-
-    if (mode != "pathfind-maze")
-        return 1;
-
-    if (argc < 3) return 1;
-    string algorithm = argv[2];
-
-    srand(getSeed(argc, argv, 3));
-    prims(g);
-
-    auto startTime = chrono::steady_clock::now();
-    result run;
-
-    if (algorithm == "bfs")
-        run = bfs(g);
-    else if (algorithm == "astar")
-        run = astar(g);
-    else if (algorithm == "dijkstra")
-        run = dijkstra(g);
-    else
-        return 1;
-
-    auto endTime = chrono::steady_clock::now();
-    run.algorithmRuntimeUs =
-        chrono::duration_cast<chrono::microseconds>(endTime - startTime).count();
-
-    cout << pathfindingToJson(run) << endl;
-    return 0;
+    if (argc < 4) return 2;
+    int dimensions = 0; unsigned int seed = 0;
+    if (!parseDimensions(argv[2], dimensions) || !parseUnsigned(argv[3], seed)) return 2;
+    grid layout(dimensions); std::srand(seed); prims(layout);
+    try {
+        const std::string command = argv[1];
+        if (command == "layout" && argc == 4) { v2::writeLayout(std::cout, layout); return std::cout ? 0 : 1; }
+        if (command != "run" || argc != 6) return 2;
+        v2::Algorithm algorithm; std::uint8_t detail = 0;
+        if (!parseAlgorithm(argv[4], algorithm) || !parseDetail(argv[5], detail)) return 2;
+        v2::writeRun(std::cout, layout, execute(layout, algorithm), algorithm, detail);
+        return std::cout ? 0 : 1;
+    } catch (const std::exception&) { return 1; }
 }
