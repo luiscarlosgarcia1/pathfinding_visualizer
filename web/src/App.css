@@ -113,6 +113,29 @@
   justify-self: start;
 }
 
+.canvas-presentation {
+  width: var(--grid-size);
+  max-width: 100%;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+}
+
+.canvas-grid {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.high-density-alternative {
+  margin: 0;
+  padding: 0.7rem 0.85rem;
+  color: #1f3045;
+  background: #edf4fa;
+  font-size: 0.92rem;
+}
+
 .metrics-panel {
   min-width: 0;
   border: 1px solid #d8e0ea;
@@ -229,6 +252,10 @@
   .grid {
     width: 100%;
     height: auto;
+  }
+
+  .canvas-presentation {
+    width: 100%;
   }
 
   .metrics-panel {
