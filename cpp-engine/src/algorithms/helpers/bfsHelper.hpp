@@ -42,7 +42,8 @@ public:
         int child = endIndx;
         res.path.push_front(child);
         while (!g->isStart(child)) {
-            res.totalDist += 1;
+            const int stepCost = g->weights[child];
+            res.totalDist += stepCost < 1 ? 1 : stepCost;
             child = parents[child];
             res.path.push_front(child);
         }

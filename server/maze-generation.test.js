@@ -22,9 +22,12 @@ const readRun = (gridDims, seed, algorithm) => {
   assert.equal(run.subarray(0, 4).toString("ascii"), "WFR2");
 
   const visitCount = run.readUInt32LE(32);
+  const pathCount = run.readUInt32LE(36);
+  const pathOffset = 40 + visitCount * 4;
   return {
     visitCount,
     totalDistance: run.readUInt32LE(28),
+    path: Array.from({ length: pathCount }, (_, index) => run.readUInt32LE(pathOffset + index * 4)),
   };
 };
 
@@ -104,9 +107,20 @@ test("A* explores materially fewer cells than BFS on a high-density generated Gr
   );
 });
 
-test("weighted terrain gives Dijkstra a different cost model than BFS", () => {
+test("BFS reports the weighted distance of its fewest-step path", () => {
+  const layout = readLayout(101, 42);
+  const bfsRun = readRun(101, 42, "bfs");
+
+  const expectedDistance = bfsRun.path
+    .slice(1)
+    .reduce((distance, index) => distance + Math.max(1, layout[index].weight), 0);
+
+  assert.equal(bfsRun.totalDistance, expectedDistance);
+});
+
+test("Dijkstra's weighted path cost is no greater than BFS's", () => {
   const bfsRun = readRun(101, 42, "bfs");
   const dijkstraRun = readRun(101, 42, "dijkstra");
 
-  assert.ok(dijkstraRun.totalDistance > bfsRun.totalDistance, "weighted route cost must differ from BFS step count");
+  assert.ok(dijkstraRun.totalDistance <= bfsRun.totalDistance, "Dijkstra should not cost more than BFS's route");
 });
