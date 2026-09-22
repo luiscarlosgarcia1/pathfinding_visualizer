@@ -10,6 +10,14 @@ test("uses Canvas as the only Grid presentation", async () => {
   assert.doesNotMatch(appSource, /gridcell/);
 });
 
+test("renders a safe Canvas label while the initial Layout is loading", async () => {
+  const appSource = await readFile(new URL("./App.jsx", import.meta.url), "utf8");
+
+  assert.match(appSource, /const label = layout\s*\?/);
+  assert.match(appSource, /"Pathfinding canvas loading"/);
+  assert.match(appSource, /aria-label=\{label\}/);
+});
+
 test("keeps both Grid presentations square at their outer edges", async () => {
   const styles = await readFile(new URL("./App.css", import.meta.url), "utf8");
 

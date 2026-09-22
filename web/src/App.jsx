@@ -56,7 +56,10 @@ function CanvasGrid({ layout, run }) {
     const observer = new ResizeObserver(render); observer.observe(canvas);
     return () => { cancelAnimationFrame(animationRef.current); observer.disconnect(); };
   }, [layout, run]);
-  return <canvas ref={canvasRef} className="canvas-grid" role="img" aria-label={`${layout.gridDims} by ${layout.gridDims} pathfinding canvas, showing aggregate visit progress`} />;
+  const label = layout
+    ? `${layout.gridDims} by ${layout.gridDims} pathfinding canvas, showing aggregate visit progress`
+    : "Pathfinding canvas loading";
+  return <canvas ref={canvasRef} className="canvas-grid" role="img" aria-label={label} />;
 }
 
 function App() {
