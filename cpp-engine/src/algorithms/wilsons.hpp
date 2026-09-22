@@ -8,9 +8,11 @@
 #include <vector>
 
 namespace {
+constexpr int kRoughTerrainChanceDenominator = 8;
+
 void carveWilsonPassage(grid& layout, int cell) {
     if (!layout.isStart(cell) && !layout.isEnd(cell)) layout.setEmpty(cell);
-    layout.weights[cell] = std::rand() % 20 == 0 ? 6 : 3;
+    layout.weights[cell] = std::rand() % kRoughTerrainChanceDenominator == 0 ? 6 : 3;
 }
 
 int randomWilsonNeighbor(const grid& layout, int cell) {

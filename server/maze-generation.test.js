@@ -11,7 +11,10 @@ const readLayout = (gridDims, seed) => {
   assert.equal(layout.subarray(0, 4).toString("ascii"), "WFL2");
   assert.equal(layout.readUInt32LE(8), gridDims);
 
-  return Array.from({ length: gridDims * gridDims }, (_, index) => layout[16 + index * 2]);
+  return Array.from({ length: gridDims * gridDims }, (_, index) => ({
+    state: layout[16 + index * 2],
+    weight: layout[16 + index * 2 + 1],
+  }));
 };
 
 const readRun = (gridDims, seed, algorithm) => {
@@ -55,8 +58,9 @@ const reachablePassages = (cells, gridDims, start) => {
 
 test("engine layouts are deterministic mazes with alternate interior routes and solid perimeter walls", () => {
   for (const gridDims of [11, 12, 101]) for (const seed of [0, 42, 8675309]) {
-    const cells = readLayout(gridDims, seed);
-    assert.deepEqual(cells, readLayout(gridDims, seed), `${gridDims}/${seed} is deterministic`);
+    const layout = readLayout(gridDims, seed);
+    const cells = layout.map(({ state }) => state);
+    assert.deepEqual(layout, readLayout(gridDims, seed), `${gridDims}/${seed} is deterministic`);
 
     const passages = cells.filter((cell) => cell !== states.wall);
     const wallCount = cells.length - passages.length;
@@ -77,6 +81,17 @@ test("engine layouts are deterministic mazes with alternate interior routes and 
         assert.equal(cells[index], states.wall, `seed ${seed} keeps index ${index} on the perimeter closed`);
     }
   }
+});
+
+test("generated layouts use visibly frequent rough terrain", () => {
+  const layout = readLayout(101, 42);
+  const passageCount = layout.filter(({ state }) => state !== states.wall).length;
+  const roughTerrainCount = layout.filter(({ state, weight }) => state === states.empty && weight === 6).length;
+
+  assert.ok(
+    roughTerrainCount >= passageCount * 0.1,
+    `expected at least 10% rough terrain, got ${roughTerrainCount}/${passageCount}`,
+  );
 });
 
 test("A* explores materially fewer cells than BFS on a high-density generated Grid", () => {
