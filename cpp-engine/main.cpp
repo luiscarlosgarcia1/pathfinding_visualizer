@@ -16,11 +16,6 @@ bool parseUnsigned(const char* text, unsigned int& value) {
     if (*end != '\0' || parsed > UINT_MAX) return false;
     value = static_cast<unsigned int>(parsed); return true;
 }
-bool parseDimensions(const char* text, int& dimensions) {
-    unsigned int parsed = 0;
-    if (!parseUnsigned(text, parsed) || parsed < 11 || parsed > 317) return false;
-    dimensions = static_cast<int>(parsed); return true;
-}
 bool parseAlgorithm(const std::string& text, v2::Algorithm& algorithm) {
     if (text == "bfs") { algorithm = v2::Algorithm::Bfs; return true; }
     if (text == "dijkstra") { algorithm = v2::Algorithm::Dijkstra; return true; }
@@ -43,16 +38,16 @@ result execute(grid& layout, v2::Algorithm algorithm) {
 }  // namespace
 
 int main(int argc, char* argv[]) {
-    if (argc < 4) return 2;
-    int dimensions = 0; unsigned int seed = 0;
-    if (!parseDimensions(argv[2], dimensions) || !parseUnsigned(argv[3], seed)) return 2;
-    grid layout(dimensions); std::srand(seed); wilsons(layout);
+    if (argc < 3) return 2;
+    unsigned int seed = 0;
+    if (!parseUnsigned(argv[2], seed)) return 2;
+    grid layout; std::srand(seed); wilsons(layout);
     try {
         const std::string command = argv[1];
-        if (command == "layout" && argc == 4) { v2::writeLayout(std::cout, layout); return std::cout ? 0 : 1; }
-        if (command != "run" || argc != 6) return 2;
+        if (command == "layout" && argc == 3) { v2::writeLayout(std::cout, layout); return std::cout ? 0 : 1; }
+        if (command != "run" || argc != 5) return 2;
         v2::Algorithm algorithm; std::uint8_t detail = 0;
-        if (!parseAlgorithm(argv[4], algorithm) || !parseDetail(argv[5], detail)) return 2;
+        if (!parseAlgorithm(argv[3], algorithm) || !parseDetail(argv[4], detail)) return 2;
         v2::writeRun(std::cout, layout, execute(layout, algorithm), algorithm, detail);
         return std::cout ? 0 : 1;
     } catch (const std::exception&) { return 1; }

@@ -44,8 +44,6 @@ npm run dev
 - `cpp-engine/`: C++ pathfinding and maze generation engine.
 - `server/`: Express API that owns the current maze layout and serves binary envelopes.
 - `web/`: React + Vite frontend.
-- `configs/config.json`: user-configurable grid size.
-- `schemas/app_config.schema.json`: JSON schema for the on-disk configuration only.
 
 ## Features Implemented So Far
 
@@ -54,11 +52,11 @@ npm run dev
 - Path total distance metric emitted by all algorithms.
 - Wilson-based maze generation with deterministic interior wall openings, a solid outer wall, and generated routes connecting the interior Start and End cells.
 - Bounded per-cell traversal costs: most passages cost 3 and occasional rough-terrain passages cost 6.
-- Config-driven grid dimensions (`grid_size` in `configs/config.json`).
+- A fixed 101×101 Grid across the engine, API, and client.
 - Version-2 binary `Layout` and `Pathfinding run` envelopes. The server is the canonical owner of the Current maze layout, so all algorithm runs compare the same Base grid.
-- API endpoints for health, configuration, `GET`/`POST /api/layout`, and `POST /api/runs/:algorithm`.
+- API endpoints for health, `GET`/`POST /api/layout`, and `POST /api/runs/:algorithm`.
 - BFS, Dijkstra, and A* runs with `full` (visit order and final path) or `metrics` detail tiers.
-- React presentations tuned to grid density: an accessible DOM grid for ordinary sizes, and an adaptive Canvas presentation with an equivalent text summary and metrics for high density.
+- A Canvas-only React visualization with an equivalent text summary and comparable metrics.
 
 ## Design Choices
 
@@ -69,9 +67,9 @@ npm run dev
   - Dijkstra and A* optimize traversal cost over predominantly cost-3 terrain with occasional cost-6 rough terrain.
   - A* scales its Manhattan lower bound by the minimum traversal cost to reduce its search space without compromising optimality.
 - **Node/Express orchestration layer**: server manages process execution, timeout handling, layout seed state, Base-grid caching, and binary-envelope validation.
-- **Adaptive visualization**: at ordinary density, individual cells remain inspectable through the DOM grid. At high density, rendering every cell as an interactive DOM control obscures the lesson and harms responsiveness, so Canvas conveys the maze and final path while metrics and the text alternative preserve comparison and accessibility outcomes.
+- **Canvas visualization**: the fixed 101×101 Grid is rendered on Canvas, avoiding thousands of individual DOM cells while the text summary and metrics preserve comparison and accessibility outcomes.
 - **CLI-style engine contract**: engine writes binary envelopes to standard output, keeping the native/HTTP boundary compact and explicit.
-- **Config-first grid sizing**: grid dimensions come from `configs/config.json`, with fallback logic in `grid_size_reader.cpp`.
+- **Fixed Grid sizing**: the Grid dimension is a single engine constant fixed at 101, and API/client validation rejects any other shape.
 
 ## Troubleshooting
 

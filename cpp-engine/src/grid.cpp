@@ -1,12 +1,12 @@
 
 #include "grid.hpp"
 
-grid::grid(int dimensions)
+grid::grid()
 {
-    gridDims = dimensions;
+    gridDims = kDimensions;
     gridSize = gridDims * gridDims;
     startIdx = gridDims + 1;
-    const int terminalCoordinate = gridDims % 2 == 0 ? gridDims - 3 : gridDims - 2;
+    const int terminalCoordinate = gridDims - 2;
     endIdx = terminalCoordinate * gridDims + terminalCoordinate;
 
     cells.reserve(gridSize);

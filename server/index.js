@@ -9,12 +9,11 @@ const PORT = Number.parseInt(process.env.PORT ?? "3001", 10);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "..");
-const configPath = path.join(rootDir, "configs", "config.json");
 const engineBinaryPath = path.join(rootDir, "cpp-engine", "build", "main");
 
 const ENGINE_TIMEOUT_MS = 5000;
-const MIN_GRID_DIMS = 11;
-const MAX_GRID_DIMS = 317;
+const GRID_DIMENSIONS = 101;
+const GRID_SIZE = GRID_DIMENSIONS * GRID_DIMENSIONS;
 const LAYOUT_HEADER_SIZE = 16;
 const RUN_HEADER_SIZE = 40;
 const ALGORITHMS = new Set(["bfs", "dijkstra", "astar"]);
@@ -30,8 +29,7 @@ const respondError = (res, status, error) => res.status(status).json({ ok: false
 const readUInt16 = (buffer, offset) => buffer.readUInt16LE(offset);
 const readUInt32 = (buffer, offset) => buffer.readUInt32LE(offset);
 const validGridShape = (gridDims, gridSize) =>
-  Number.isInteger(gridDims) && gridDims >= MIN_GRID_DIMS && gridDims <= MAX_GRID_DIMS &&
-  Number.isInteger(gridSize) && gridSize === gridDims * gridDims;
+  gridDims === GRID_DIMENSIONS && gridSize === GRID_SIZE;
 
 const validateLayoutEnvelope = (buffer) => {
   if (buffer.length < LAYOUT_HEADER_SIZE || buffer.subarray(0, 4).toString("ascii") !== "WFL2") {
@@ -109,18 +107,9 @@ const ensureEngineBinary = async (res) => {
   catch (_error) { respondError(res, 500, "engine_unavailable"); return false; }
 };
 
-const readConfiguredDimensions = async () => {
-  const config = JSON.parse(await fs.readFile(configPath, "utf8"));
-  const dimensions = Number(config.grid_size);
-  if (!Number.isInteger(dimensions) || dimensions < MIN_GRID_DIMS || dimensions > MAX_GRID_DIMS) {
-    throw new Error("invalid configured grid size");
-  }
-  return dimensions;
-};
-
-const buildLayout = async (gridDims) => {
+const buildLayout = async () => {
   const mazeSeed = createMazeSeed();
-  const binary = await runEngine(["layout", String(gridDims), String(mazeSeed)]);
+  const binary = await runEngine(["layout", String(mazeSeed)]);
   const shape = validateLayoutEnvelope(binary);
   return { id: createLayoutId(), mazeSeed, binary, ...shape };
 };
@@ -132,17 +121,12 @@ const sendLayout = (res, layout) => {
 
 const getActiveLayout = async () => {
   if (currentLayout) return currentLayout;
-  currentLayout = await buildLayout(await readConfiguredDimensions());
+  currentLayout = await buildLayout();
   return currentLayout;
 };
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, service: "pathfinding-server", timestamp: new Date().toISOString() });
-});
-
-app.get("/api/config", async (_req, res) => {
-  try { res.json({ ok: true, config: JSON.parse(await fs.readFile(configPath, "utf8")) }); }
-  catch (_error) { respondError(res, 500, "config_unavailable"); }
 });
 
 app.get("/api/layout", async (_req, res) => {
@@ -153,13 +137,12 @@ app.get("/api/layout", async (_req, res) => {
 
 app.post("/api/layout", async (req, res) => {
   if (!(await ensureEngineBinary(res))) return;
-  const requestedDims = req.body?.gridDims;
-  if (requestedDims !== undefined && (!Number.isInteger(requestedDims) || requestedDims < MIN_GRID_DIMS || requestedDims > MAX_GRID_DIMS)) {
-    respondError(res, 400, "invalid_grid_dims");
+  if (req.body?.gridDims !== undefined && req.body.gridDims !== GRID_DIMENSIONS) {
+    respondError(res, 400, "grid_dimensions_locked");
     return;
   }
   try {
-    currentLayout = await buildLayout(requestedDims ?? (await readConfiguredDimensions()));
+    currentLayout = await buildLayout();
     sendLayout(res, currentLayout);
   } catch (_error) { respondError(res, 502, "layout_generation_failed"); }
 });
@@ -174,7 +157,7 @@ app.post("/api/runs/:algorithm", async (req, res) => {
   if (layoutId !== requestedLayout?.id) return respondError(res, 409, "stale_layout_id");
   if (!DETAILS.has(detail)) return respondError(res, 400, "invalid_run_detail");
   try {
-    const binary = await runEngine(["run", String(requestedLayout.gridDims), String(requestedLayout.mazeSeed), algorithm, detail]);
+    const binary = await runEngine(["run", String(requestedLayout.mazeSeed), algorithm, detail]);
     validateRunEnvelope(binary, requestedLayout, algorithm);
     res.set({ "Content-Type": "application/octet-stream", "Content-Length": String(binary.length), "X-Layout-Id": requestedLayout.id });
     res.send(binary);

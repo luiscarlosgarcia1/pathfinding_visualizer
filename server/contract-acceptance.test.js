@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { app } from "./index.js";
 
-const dimensions = [11, 316, 317];
+const GRID_DIMENSIONS = 101;
 const algorithms = ["bfs", "dijkstra", "astar"];
 const details = ["full", "metrics"];
 
@@ -22,15 +22,16 @@ const readRun = async (response) => {
   };
 };
 
-test("public Layout and Pathfinding-run contracts work at ordinary and high density", async (context) => {
+test("public Layout and Pathfinding-run contracts use the fixed 101 by 101 Grid", async (context) => {
   const server = app.listen(0);
   context.after(() => new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve())));
   await new Promise((resolve) => server.once("listening", resolve));
   const baseUrl = `http://127.0.0.1:${server.address().port}`;
 
-  for (const gridDims of dimensions) {
+  {
+    const gridDims = GRID_DIMENSIONS;
     const layoutResponse = await fetch(`${baseUrl}/api/layout`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ gridDims }),
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}),
     });
     assert.equal(layoutResponse.status, 200);
     assert.equal(layoutResponse.headers.get("content-type"), "application/octet-stream");
@@ -79,10 +80,10 @@ test("public API reports binary-contract request failures explicitly", async (co
   const baseUrl = `http://127.0.0.1:${server.address().port}`;
 
   const invalidDimension = await fetch(`${baseUrl}/api/layout`, {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ gridDims: 318 }),
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ gridDims: 100 }),
   });
   assert.equal(invalidDimension.status, 400);
-  assert.deepEqual(await invalidDimension.json(), { ok: false, error: "invalid_grid_dims" });
+  assert.deepEqual(await invalidDimension.json(), { ok: false, error: "grid_dimensions_locked" });
 
   const staleRun = await fetch(`${baseUrl}/api/runs/bfs`, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ layoutId: "obsolete", detail: "full" }),

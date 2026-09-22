@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { validateRunEnvelope } from "./index.js";
 
-const expectedGrid = { gridDims: 11, gridSize: 121 };
+const expectedGrid = { gridDims: 101, gridSize: 10201 };
 
 const createRunEnvelope = ({ algorithm = 1, detail = 1, found = 1, visits = [0], path = [0] } = {}) => {
   const buffer = Buffer.alloc(40 + (visits.length + path.length) * 4);
@@ -29,8 +29,8 @@ test("validateRunEnvelope rejects a run for a different algorithm", () => {
 });
 
 test("validateRunEnvelope rejects out-of-grid visit and path indexes", () => {
-  assert.throws(() => validateRunEnvelope(createRunEnvelope({ visits: [121] }), expectedGrid, "bfs"));
-  assert.throws(() => validateRunEnvelope(createRunEnvelope({ path: [121] }), expectedGrid, "bfs"));
+  assert.throws(() => validateRunEnvelope(createRunEnvelope({ visits: [10201] }), expectedGrid, "bfs"));
+  assert.throws(() => validateRunEnvelope(createRunEnvelope({ path: [10201] }), expectedGrid, "bfs"));
 });
 
 test("validateRunEnvelope rejects inconsistent full-run found and path values", () => {

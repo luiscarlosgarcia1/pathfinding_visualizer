@@ -1,6 +1,5 @@
 
 #pragma once
-#include "config/grid_size_reader.hpp"
 #include <vector>
 using namespace std;
 
@@ -25,7 +24,9 @@ private:
 
 
 public:
-    explicit grid(int dimensions);
+    static constexpr int kDimensions = 101;
+
+    grid();
     ~grid() = default;
 
     int getGridDims() const;

@@ -31,7 +31,7 @@ inline void writeMagic(std::ostream& out, const char (&magic)[5]) { out.write(ma
 
 inline bool validLayout(const grid& layout) {
     const int size = layout.getGridSize();
-    return layout.getGridDims() >= 11 && layout.getGridDims() <= 317 &&
+    return layout.getGridDims() == grid::kDimensions &&
         static_cast<int>(layout.getCells().size()) == size &&
         static_cast<int>(layout.getWeights().size()) == size &&
         layout.isStart(layout.getStart()) && layout.isEnd(layout.getEnd());

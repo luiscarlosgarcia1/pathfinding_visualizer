@@ -3,8 +3,7 @@ CXXFLAGS := -std=c++17 -Wall -Wextra -pedantic -I. -Icpp-engine -Icpp-engine/src
 
 SRC := \
 	cpp-engine/main.cpp \
-	cpp-engine/src/grid.cpp \
-	cpp-engine/src/config/grid_size_reader.cpp
+	cpp-engine/src/grid.cpp
 
 HEADERS := $(shell find cpp-engine/src -type f -name '*.hpp')
 

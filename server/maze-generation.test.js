@@ -6,19 +6,21 @@ import { fileURLToPath } from "node:url";
 const engine = fileURLToPath(new URL("../cpp-engine/build/main", import.meta.url));
 const states = { empty: 0, wall: 1, start: 2, end: 3 };
 
-const readLayout = (gridDims, seed) => {
-  const layout = execFileSync(engine, ["layout", String(gridDims), String(seed)]);
-  assert.equal(layout.subarray(0, 4).toString("ascii"), "WFL2");
-  assert.equal(layout.readUInt32LE(8), gridDims);
+const GRID_DIMENSIONS = 101;
 
-  return Array.from({ length: gridDims * gridDims }, (_, index) => ({
+const readLayout = (seed) => {
+  const layout = execFileSync(engine, ["layout", String(seed)]);
+  assert.equal(layout.subarray(0, 4).toString("ascii"), "WFL2");
+  assert.equal(layout.readUInt32LE(8), GRID_DIMENSIONS);
+
+  return Array.from({ length: GRID_DIMENSIONS * GRID_DIMENSIONS }, (_, index) => ({
     state: layout[16 + index * 2],
     weight: layout[16 + index * 2 + 1],
   }));
 };
 
-const readRun = (gridDims, seed, algorithm) => {
-  const run = execFileSync(engine, ["run", String(gridDims), String(seed), algorithm, "full"]);
+const readRun = (seed, algorithm) => {
+  const run = execFileSync(engine, ["run", String(seed), algorithm, "full"]);
   assert.equal(run.subarray(0, 4).toString("ascii"), "WFR2");
 
   const visitCount = run.readUInt32LE(32);
@@ -60,10 +62,10 @@ const reachablePassages = (cells, gridDims, start) => {
 };
 
 test("engine layouts are deterministic mazes with alternate interior routes and solid perimeter walls", () => {
-  for (const gridDims of [11, 12, 101]) for (const seed of [0, 42, 8675309]) {
-    const layout = readLayout(gridDims, seed);
+  for (const seed of [0, 42, 8675309]) {
+    const layout = readLayout(seed);
     const cells = layout.map(({ state }) => state);
-    assert.deepEqual(layout, readLayout(gridDims, seed), `${gridDims}/${seed} is deterministic`);
+    assert.deepEqual(layout, readLayout(seed), `${GRID_DIMENSIONS}/${seed} is deterministic`);
 
     const passages = cells.filter((cell) => cell !== states.wall);
     const wallCount = cells.length - passages.length;
@@ -71,23 +73,23 @@ test("engine layouts are deterministic mazes with alternate interior routes and 
     assert.equal(cells.filter((cell) => cell === states.end).length, 1);
     const start = cells.indexOf(states.start);
     const end = cells.indexOf(states.end);
-    const reached = reachablePassages(cells, gridDims, start);
+    const reached = reachablePassages(cells, GRID_DIMENSIONS, start);
     assert.ok(reached.has(end), `seed ${seed} connects Start to End`);
     assert.equal(reached.size, passages.length, `seed ${seed} has one connected passage network`);
-    assert.ok(adjacentPassageEdges(cells, gridDims) > passages.length - 1, `seed ${seed} has alternate routes`);
+    assert.ok(adjacentPassageEdges(cells, GRID_DIMENSIONS) > passages.length - 1, `seed ${seed} has alternate routes`);
     assert.ok(wallCount >= cells.length * 0.45, `seed ${seed} retains a maze-like wall density`);
 
     for (let index = 0; index < cells.length; index += 1) {
-      const row = Math.floor(index / gridDims);
-      const column = index % gridDims;
-      if (row === 0 || row === gridDims - 1 || column === 0 || column === gridDims - 1)
+      const row = Math.floor(index / GRID_DIMENSIONS);
+      const column = index % GRID_DIMENSIONS;
+      if (row === 0 || row === GRID_DIMENSIONS - 1 || column === 0 || column === GRID_DIMENSIONS - 1)
         assert.equal(cells[index], states.wall, `seed ${seed} keeps index ${index} on the perimeter closed`);
     }
   }
 });
 
 test("generated layouts use visibly frequent rough terrain", () => {
-  const layout = readLayout(101, 42);
+  const layout = readLayout(42);
   const passageCount = layout.filter(({ state }) => state !== states.wall).length;
   const roughTerrainCount = layout.filter(({ state, weight }) => state === states.empty && weight === 6).length;
 
@@ -98,8 +100,8 @@ test("generated layouts use visibly frequent rough terrain", () => {
 });
 
 test("A* explores materially fewer cells than BFS on a high-density generated Grid", () => {
-  const bfsRun = readRun(317, 42, "bfs");
-  const astarRun = readRun(317, 42, "astar");
+  const bfsRun = readRun(42, "bfs");
+  const astarRun = readRun(42, "astar");
 
   assert.ok(
     astarRun.visitCount <= bfsRun.visitCount * 0.8,
@@ -108,8 +110,8 @@ test("A* explores materially fewer cells than BFS on a high-density generated Gr
 });
 
 test("BFS reports the weighted distance of its fewest-step path", () => {
-  const layout = readLayout(101, 42);
-  const bfsRun = readRun(101, 42, "bfs");
+  const layout = readLayout(42);
+  const bfsRun = readRun(42, "bfs");
 
   const expectedDistance = bfsRun.path
     .slice(1)
@@ -119,8 +121,8 @@ test("BFS reports the weighted distance of its fewest-step path", () => {
 });
 
 test("Dijkstra's weighted path cost is no greater than BFS's", () => {
-  const bfsRun = readRun(101, 42, "bfs");
-  const dijkstraRun = readRun(101, 42, "dijkstra");
+  const bfsRun = readRun(42, "bfs");
+  const dijkstraRun = readRun(42, "dijkstra");
 
   assert.ok(dijkstraRun.totalDistance <= bfsRun.totalDistance, "Dijkstra should not cost more than BFS's route");
 });

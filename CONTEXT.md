@@ -6,7 +6,7 @@ An interactive web application that generates a bounded weighted maze and compar
 
 ## Grid
 
-A square, row-major collection of cells. Its dimension is `gridDims`; its total cell count is `gridSize`, which must equal `gridDims * gridDims`. The configured `grid_size` controls the grid dimension.
+A square, row-major collection of cells. Its dimension is locked to 101; its total cell count is therefore always 10,201. Engine, API, and client envelopes retain `gridDims` and `gridSize` so each boundary can enforce this invariant.
 
 ## Cell index
 
