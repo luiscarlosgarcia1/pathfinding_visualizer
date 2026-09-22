@@ -3,6 +3,7 @@
 #include <functional>
 #include <limits>
 #include <queue>
+#include <tuple>
 #include <utility>
 #include <vector>
 #include "helper.hpp"
@@ -12,14 +13,21 @@ class astarHelper : public helper
 public:
     vector<int> parents;
     vector<int> distances;
-    priority_queue<pair<int, int>, vector<pair<int, int>>, greater<pair<int, int>>> mpq;
+    int minimumTraversalCost;
+    priority_queue<tuple<int, int, int>, vector<tuple<int, int, int>>, greater<tuple<int, int, int>>> mpq;
 
     astarHelper(grid* grid) : helper(grid)
     {
         parents = vector<int>(g->getGridSize(), -1);
         distances = vector<int>(g->getGridSize(), numeric_limits<int>::max());
+        minimumTraversalCost = numeric_limits<int>::max();
+        for (int cell = 0; cell < g->getGridSize(); ++cell) {
+            if (g->isWall(cell)) continue;
+            const int cost = g->weights[cell] < 1 ? 1 : g->weights[cell];
+            if (cost < minimumTraversalCost) minimumTraversalCost = cost;
+        }
         distances[g->getStart()] = 0;
-        mpq.push({ heuristic(g->getStart()), g->getStart() });
+        mpq.push({ heuristic(g->getStart()), 0, g->getStart() });
     }
 
     int heuristic(int cell)
@@ -33,7 +41,7 @@ public:
         int erow = end / dims;
         int ecol = end % dims;
 
-        return distances[cell] + abs(erow - srow) + abs(ecol - scol);
+        return distances[cell] + minimumTraversalCost * (abs(erow - srow) + abs(ecol - scol));
     }
 
     void findNeighbors(int cell)
@@ -50,7 +58,7 @@ public:
             {
                 distances[neighbor] = distances[cell] + cost;
                 parents[neighbor] = cell;
-                mpq.push({ heuristic(neighbor), neighbor });
+                mpq.push({ heuristic(neighbor), -distances[neighbor], neighbor });
             }
         }
     }

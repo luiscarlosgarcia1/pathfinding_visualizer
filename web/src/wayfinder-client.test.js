@@ -33,6 +33,20 @@ test("refreshes the Layout instead of returning a stale run", async () => {
   assert.equal(result.stale, true); assert.equal(result.layout.id, "layout-b"); assert.deepEqual(requests, ["/api/runs/bfs", "/api/layout"]);
 });
 
+test("decodes a successful named-algorithm Pathfinding run", async () => {
+  const layout = decodeLayout(layoutEnvelope(), "layout-a");
+  const response = {
+    status: 200,
+    ok: true,
+    headers: new Headers({ "X-Layout-Id": "layout-a" }),
+    arrayBuffer: async () => runEnvelope(),
+  };
+  const result = await fetchRun(layout, "bfs", async () => response);
+
+  assert.equal(result.stale, false);
+  assert.equal(result.run.algorithm, 1);
+});
+
 test("requests a generated Layout at the selected Grid dimension", async () => {
   let request;
   const response = { ok: true, headers: new Headers({ "X-Layout-Id": "layout-c" }), arrayBuffer: async () => layoutEnvelope() };

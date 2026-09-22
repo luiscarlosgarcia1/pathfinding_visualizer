@@ -6,13 +6,15 @@ SRC := \
 	cpp-engine/src/grid.cpp \
 	cpp-engine/src/config/grid_size_reader.cpp
 
+HEADERS := $(shell find cpp-engine/src -type f -name '*.hpp')
+
 BIN := cpp-engine/build/main
 
 .PHONY: all run clean
 
 all: $(BIN)
 
-$(BIN): $(SRC)
+$(BIN): $(SRC) $(HEADERS)
 	mkdir -p cpp-engine/build
 	$(CXX) $(CXXFLAGS) $(SRC) -o $(BIN)
 

@@ -4,6 +4,7 @@ export const GRID_DIMENSIONS = Object.freeze({ default: 21, min: 11, max: 317 })
 
 export const CELL_ROLE = Object.freeze({ EMPTY: 0, WALL: 1, START: 2, END: 3 });
 export const RUN_DETAIL = Object.freeze({ FULL: 1, METRICS: 2 });
+const ALGORITHM_CODE = Object.freeze({ bfs: 1, dijkstra: 2, astar: 3 });
 
 const validGridShape = (gridDims, gridSize) =>
   Number.isInteger(gridDims) && gridDims >= GRID_DIMENSIONS.min && gridDims <= GRID_DIMENSIONS.max &&
@@ -111,6 +112,8 @@ export const generateLayout = async (gridDims, request = fetch) => {
 };
 
 export const fetchRun = async (layout, algorithm, request = fetch) => {
+  const expectedAlgorithm = ALGORITHM_CODE[algorithm];
+  if (!expectedAlgorithm) throw new Error("Unknown Pathfinding algorithm.");
   const response = await request(`/api/runs/${algorithm}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -120,5 +123,5 @@ export const fetchRun = async (layout, algorithm, request = fetch) => {
     return { stale: true, layout: await fetchLayout(request) };
   }
   if (!response.ok) throw new Error((await parseError(response)) ?? "Pathfinding request failed.");
-  return { stale: false, run: decodeRun(await response.arrayBuffer(), layout, algorithm) };
+  return { stale: false, run: decodeRun(await response.arrayBuffer(), layout, expectedAlgorithm) };
 };

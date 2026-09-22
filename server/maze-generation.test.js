@@ -14,6 +14,17 @@ const readLayout = (gridDims, seed) => {
   return Array.from({ length: gridDims * gridDims }, (_, index) => layout[16 + index * 2]);
 };
 
+const readRun = (gridDims, seed, algorithm) => {
+  const run = execFileSync(engine, ["run", String(gridDims), String(seed), algorithm, "full"]);
+  assert.equal(run.subarray(0, 4).toString("ascii"), "WFR2");
+
+  const visitCount = run.readUInt32LE(32);
+  return {
+    visitCount,
+    totalDistance: run.readUInt32LE(28),
+  };
+};
+
 const adjacentPassageEdges = (cells, gridDims) => {
   let edges = 0;
   for (let index = 0; index < cells.length; index += 1) {
@@ -42,12 +53,13 @@ const reachablePassages = (cells, gridDims, start) => {
   return reached;
 };
 
-test("engine layouts are deterministic perfect mazes with interior terminals and solid perimeter walls", () => {
-  for (const gridDims of [11, 12]) for (const seed of [0, 42, 8675309]) {
+test("engine layouts are deterministic mazes with alternate interior routes and solid perimeter walls", () => {
+  for (const gridDims of [11, 12, 101]) for (const seed of [0, 42, 8675309]) {
     const cells = readLayout(gridDims, seed);
     assert.deepEqual(cells, readLayout(gridDims, seed), `${gridDims}/${seed} is deterministic`);
 
     const passages = cells.filter((cell) => cell !== states.wall);
+    const wallCount = cells.length - passages.length;
     assert.equal(cells.filter((cell) => cell === states.start).length, 1);
     assert.equal(cells.filter((cell) => cell === states.end).length, 1);
     const start = cells.indexOf(states.start);
@@ -55,7 +67,8 @@ test("engine layouts are deterministic perfect mazes with interior terminals and
     const reached = reachablePassages(cells, gridDims, start);
     assert.ok(reached.has(end), `seed ${seed} connects Start to End`);
     assert.equal(reached.size, passages.length, `seed ${seed} has one connected passage network`);
-    assert.equal(adjacentPassageEdges(cells, gridDims), passages.length - 1, `seed ${seed} has no loops`);
+    assert.ok(adjacentPassageEdges(cells, gridDims) > passages.length - 1, `seed ${seed} has alternate routes`);
+    assert.ok(wallCount >= cells.length * 0.45, `seed ${seed} retains a maze-like wall density`);
 
     for (let index = 0; index < cells.length; index += 1) {
       const row = Math.floor(index / gridDims);
@@ -64,4 +77,21 @@ test("engine layouts are deterministic perfect mazes with interior terminals and
         assert.equal(cells[index], states.wall, `seed ${seed} keeps index ${index} on the perimeter closed`);
     }
   }
+});
+
+test("A* explores materially fewer cells than BFS on a high-density generated Grid", () => {
+  const bfsRun = readRun(317, 42, "bfs");
+  const astarRun = readRun(317, 42, "astar");
+
+  assert.ok(
+    astarRun.visitCount <= bfsRun.visitCount * 0.8,
+    `A* should visit at most 80% of BFS cells, got ${astarRun.visitCount}/${bfsRun.visitCount}`,
+  );
+});
+
+test("weighted terrain gives Dijkstra a different cost model than BFS", () => {
+  const bfsRun = readRun(101, 42, "bfs");
+  const dijkstraRun = readRun(101, 42, "dijkstra");
+
+  assert.ok(dijkstraRun.totalDistance > bfsRun.totalDistance, "weighted route cost must differ from BFS step count");
 });

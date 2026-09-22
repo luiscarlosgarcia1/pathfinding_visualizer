@@ -9,7 +9,7 @@ result astar(grid &grid)
 
     while (!h.mpq.empty())
     {
-        auto [cellDist, cell] = h.mpq.top();
+        const int cell = get<2>(h.mpq.top());
         h.mpq.pop();
 
         if (h.seen[cell])

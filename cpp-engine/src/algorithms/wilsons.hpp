@@ -4,12 +4,13 @@
 
 #include <array>
 #include <cstdlib>
+#include <utility>
 #include <vector>
 
 namespace {
 void carveWilsonPassage(grid& layout, int cell) {
     if (!layout.isStart(cell) && !layout.isEnd(cell)) layout.setEmpty(cell);
-    layout.weights[cell] = 1 + std::rand() % 9;
+    layout.weights[cell] = std::rand() % 20 == 0 ? 6 : 3;
 }
 
 int randomWilsonNeighbor(const grid& layout, int cell) {
@@ -25,11 +26,36 @@ int randomWilsonNeighbor(const grid& layout, int cell) {
     if (column > 1) neighbors[count++] = cell - 2;
     return neighbors[std::rand() % count];
 }
+
+void openWilsonLoops(grid& layout) {
+    const int dimensions = layout.getGridDims();
+    std::vector<int> candidates;
+
+    for (int row = 1; row < dimensions - 1; ++row) {
+        for (int column = 1; column < dimensions - 1; ++column) {
+            const int cell = row * dimensions + column;
+            if (!layout.isWall(cell)) continue;
+
+            const bool joinsVerticalPassage = !layout.isWall(cell - dimensions) && !layout.isWall(cell + dimensions);
+            const bool joinsHorizontalPassage = !layout.isWall(cell - 1) && !layout.isWall(cell + 1);
+            if (joinsVerticalPassage || joinsHorizontalPassage) candidates.push_back(cell);
+        }
+    }
+
+    for (int index = static_cast<int>(candidates.size()) - 1; index > 0; --index) {
+        const int swapIndex = std::rand() % (index + 1);
+        std::swap(candidates[index], candidates[swapIndex]);
+    }
+
+    const int loopsToOpen = static_cast<int>(candidates.size()) / 12;
+    for (int index = 0; index < loopsToOpen; ++index)
+        carveWilsonPassage(layout, candidates[index]);
+}
 }  // namespace
 
-// Generates a perfect maze over the interior checkerboard lattice. The Grid's
-// Start and End cells are lattice nodes, so the resulting tree connects them
-// without opening the perimeter or adding a repair corridor.
+// Generates a connected maze over the interior checkerboard lattice, then
+// opens selected interior walls to create alternate routes without breaching
+// the perimeter. Start and End stay on lattice nodes.
 inline void wilsons(grid& layout) {
     const int dimensions = layout.getGridDims();
     const int size = layout.getGridSize();
@@ -41,7 +67,7 @@ inline void wilsons(grid& layout) {
     std::vector<bool> inTree(size, false);
     std::vector<int> walkPosition(size, -1);
     inTree[layout.getStart()] = true;
-    layout.weights[layout.getStart()] = 1;
+    layout.weights[layout.getStart()] = 3;
 
     int remaining = static_cast<int>(nodes.size()) - 1;
     while (remaining > 0) {
@@ -75,5 +101,6 @@ inline void wilsons(grid& layout) {
             --remaining;
         }
     }
-    layout.weights[layout.getEnd()] = 1;
+    openWilsonLoops(layout);
+    layout.weights[layout.getEnd()] = 3;
 }

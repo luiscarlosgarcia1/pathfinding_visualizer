@@ -52,8 +52,8 @@ npm run dev
 - BFS, Dijkstra, and A* pathfinding in the C++ engine.
 - Weighted path cost support for Dijkstra and A* (`stepCost = max(1, cellWeight)`).
 - Path total distance metric emitted by all algorithms.
-- Wilson's perfect-maze generation, with a solid outer wall and generated routes connecting the interior Start and End cells.
-- Per-cell weight generation during maze carving.
+- Wilson-based maze generation with deterministic interior wall openings, a solid outer wall, and generated routes connecting the interior Start and End cells.
+- Bounded per-cell traversal costs: most passages cost 3 and occasional rough-terrain passages cost 6.
 - Config-driven grid dimensions (`grid_size` in `configs/config.json`).
 - Version-2 binary `Layout` and `Pathfinding run` envelopes. The server is the canonical owner of the Current maze layout, so all algorithm runs compare the same Base grid.
 - API endpoints for health, configuration, `GET`/`POST /api/layout`, and `POST /api/runs/:algorithm`.
@@ -64,9 +64,10 @@ npm run dev
 
 - **C++ engine for algorithms**: pathfinding/maze logic runs in native code for performance and clear algorithm isolation.
 - **Binary envelope contract**: engine/API exchange fixed headers plus compact typed cell data. Layouts encode each cell's role and weight; full runs encode index arrays only for the traversal and final path. This avoids JSON serialization and client-side reconstruction of legacy sparse schemas.
-- **Hybrid weighted model**:
-  - BFS remains unweighted for traversal behavior.
-  - Dijkstra and A* optimize weighted path cost using per-cell weights with a minimum step cost of `1`.
+- **Bounded weighted comparison model**:
+  - BFS uses FIFO traversal to find the shortest path in steps.
+  - Dijkstra and A* optimize traversal cost over predominantly cost-3 terrain with occasional cost-6 rough terrain.
+  - A* scales its Manhattan lower bound by the minimum traversal cost to reduce its search space without compromising optimality.
 - **Node/Express orchestration layer**: server manages process execution, timeout handling, layout seed state, Base-grid caching, and binary-envelope validation.
 - **Adaptive visualization**: at ordinary density, individual cells remain inspectable through the DOM grid. At high density, rendering every cell as an interactive DOM control obscures the lesson and harms responsiveness, so Canvas conveys the maze and final path while metrics and the text alternative preserve comparison and accessibility outcomes.
 - **CLI-style engine contract**: engine writes binary envelopes to standard output, keeping the native/HTTP boundary compact and explicit.
